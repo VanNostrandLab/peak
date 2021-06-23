@@ -58,9 +58,9 @@ optional arguments:
                         Space separated peak bed files.
   --outdir OUTDIR       Path to output directory.
   --species SPECIES     Short code for species, e.g., hg19, mm10.
-  --l2fc L2FC           Only consider peaks at or above this l2fc cutoff.
-  --l10p L10P           Only consider peaks at or above this l10p cutoff.
-  --idr IDR             Only consider peaks at or above this idr score cutoff.
+  --l2fc L2FC           Only consider peaks at or above this l2fc cutoff, default: 3.
+  --l10p L10P           Only consider peaks at or above this l10p cutoff, default: 3.
+  --idr IDR             Only consider peaks at or above this idr score cutoff, default: 0.01.
   --dry_run             Print out steps and inputs/outputs of each step without 
                         actually running the pipeline.
   --debug               Invoke debug mode (only for develop purpose).
