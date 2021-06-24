@@ -40,7 +40,7 @@ usage: peak [-h]
             [--ip_bams IP_BAMS [IP_BAMS ...]] 
             [--input_bams INPUT_BAMS [INPUT_BAMS ...]] 
             [--peak_beds PEAK_BEDS [PEAK_BEDS ...]] 
-            [--outdir OUTDIR] 
+            [--read_type READ_TYPE] [--outdir OUTDIR] 
             [--species SPECIES] 
             [--l2fc L2FC] [--l10p L10P] [--idr IDR] 
             [--dry_run] [--debug]
@@ -56,6 +56,8 @@ optional arguments:
                         Space separated INPUT bam files.
   --peak_beds PEAK_BEDS [PEAK_BEDS ...]
                         Space separated peak bed files.
+  --read_type READ_TYPE
+                        Read type of eCLIP experiment, SE or PE.
   --outdir OUTDIR       Path to output directory.
   --species SPECIES     Short code for species, e.g., hg19, mm10.
   --l2fc L2FC           Only consider peaks at or above this l2fc cutoff, default: 3.
