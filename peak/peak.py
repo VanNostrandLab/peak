@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description=__doc__, prog='peak')
 parser.add_argument('--ip_bams', nargs='+', help='Space separated IP bam files (at least 2 files).')
 parser.add_argument('--input_bams', nargs='+', help='Space separated INPUT bam files (at least 2 files).')
 parser.add_argument('--peak_beds', nargs='+', help="Space separated peak bed files (at least 2 files).")
-parser.add_argument('--read_type', help="Read type of eCLIP experiment, SE or PE.", default='PE')
+parser.add_argument('--read_type', help="Read type of eCLIP experiment, either SE or PE.", default='PE')
 parser.add_argument('--outdir', type=str, help="Path to output directory.")
 parser.add_argument('--species', type=str, help="Short code for species, e.g., hg19, mm10.")
 parser.add_argument('--l2fc', type=float, help="Only consider peaks at or above this l2fc cutoff.", default=3)
@@ -32,9 +32,17 @@ parser.add_argument('--dry_run', action='store_true',
                     help='Print out steps and inputs/outputs of each step without actually running the pipeline.')
 parser.add_argument('--debug', action='store_true', help='Invoke debug mode (only for develop purpose).')
 
+if len(sys.argv) == 1:
+    parser.print_help(sys.stderr)
+    sys.exit(1)
+args = parser.parse_args()
+
 
 def validate_paths():
     def files_exist(files, tag):
+        if not files:
+            logger.error(f'No {tag} were provided, aborted.')
+            sys.exit(1)
         engine, paths = inflect.engine(), []
         for i, file in enumerate(files, start=1):
             if os.path.exists(file):
@@ -45,9 +53,9 @@ def validate_paths():
                     paths.append(file)
             else:
                 logger.error(f'The {engine.ordinal(i)} file in {tag} "{file}" does not exist.')
+                sys.exit(1)
         return paths
 
-    args = parser.parse_args()
     ip_bams = files_exist(args.ip_bams, 'IP bams')
     input_bams = files_exist(args.input_bams, 'INPUT bams')
     peak_beds = files_exist(args.peak_beds, 'Peak beds')
@@ -249,7 +257,11 @@ def reproducible_peak(inputs, reproducible_bed):
     cmd += [f'{outdir}/{".vs.".join(basenames)}.idr.out{".bed" if len(files) == 3 else ""}']
     cmder.run(cmd, msg='Identifying reproducible peaks ...', pmt=True)
 
-    
-if __name__ == '__main__':
+
+def main():
     flow = Flow('Peak', description=__doc__.strip())
     flow.run(dry=options.dry_run)
+
+
+if __name__ == '__main__':
+    main()
