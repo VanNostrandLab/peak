@@ -5,34 +5,29 @@ Pipeline for using IDR to identify a set of reproducible peaks given eClIP datas
 ## Installation
 - For Van Nostrand Lab
 
-    The pipeline has already been installed with `eclip` pipeline. As a standalone pipeline, 
-    it can be called by using its relative or absolute path: 
-    `/storage/vannostrand/software/eclip/peak`. 
+    The pipeline has already been installed. Activate its environment
+    by issue the following command: 
+    `source /storage/vannostrand/software/eclip/venv/environment.sh`.
   
-    For convenience, consider to add this line: 
-    `alias peak=/storage/vannostrand/software/eclip/peak` into your `~/.bash_profile`. This 
-    will let you use the pipeline by directly call `peak` in the future.
-
-
-- For all others (this part has not been fully tested yet and may not work as expected, check back later):
-    - Install Python (3.8+)
-    - Install eclip-peak (`pip install eclip-peak`)
+- For all others:
+    - Install Python (3.6+)
+    - Install peak (`pip install peak`)
     - Install [IDR](https://github.com/nboley/idr) (2.0.3+)
     - Install Perl (5.10.1+) with the following packages:
-        - Statistics::Basic (`cpan install Statistics::Basic`)
-        - Statistics::Distributions (`cpan install Statistics::Distributions`)
-        - install Statistics::R (`cpan install Statistics::R`)
+        - Statistics::Basic (`cpanm install Statistics::Basic`)
+        - Statistics::Distributions (`cpanm install Statistics::Distributions`)
+        - install Statistics::R (`cpanm install Statistics::R`)
     
 ## Usage
 - For Van Nostrand Lab
   
-    Call `/storage/vannostrand/software/eclip/peak -h` to see the following usage. 
+    After activate peak's environment call` peak -h` to see the detailed usage. 
 
 
-- For all others (this part has not been fully tested yet and will be tested soon):
+- For all others:
 
-    After successfully installed Python, eclip-peak, Perl (with required packages), 
-    users should be able to call `peak -h` to see the following usage. 
+    After successfully installed Python, peak, Perl (with required packages), 
+    call `peak -h` inside your terminal to see the following detailed usage:
   
 ```shell
 $ peak -h
@@ -51,13 +46,13 @@ with two or three replicates.
 optional arguments:
   -h, --help            show this help message and exit
   --ip_bams IP_BAMS [IP_BAMS ...]
-                        Space separated IP bam files.
+                        Space separated IP bam files (at least 2 files).
   --input_bams INPUT_BAMS [INPUT_BAMS ...]
-                        Space separated INPUT bam files.
+                        Space separated INPUT bam files (at least 2 files).
   --peak_beds PEAK_BEDS [PEAK_BEDS ...]
-                        Space separated peak bed files.
+                        Space separated peak bed files (at least 2 files).
   --read_type READ_TYPE
-                        Read type of eCLIP experiment, SE or PE.
+                        Read type of eCLIP experiment, either SE or PE.
   --outdir OUTDIR       Path to output directory.
   --species SPECIES     Short code for species, e.g., hg19, mm10.
   --l2fc L2FC           Only consider peaks at or above this l2fc cutoff, default: 3.
@@ -73,7 +68,7 @@ optional arguments:
  - Normalize CLIP IP BAM over INPUT for each replicate
  - Peak compression/merging on input-normalized peaks for each replicate
  - Entropy calculation on IP and INPUT read probabilities within each peak for each replicate
- - Run IDR on peaks ranked by entropy (idr.cwl)
+ - Run IDR on peaks ranked by entropy
  - Normalize IP BAM over INPUT using new IDR peak regions
  - Identify reproducible peaks within IDR regions
 
@@ -133,10 +128,13 @@ optional arguments:
 Note:
 
  - The indentation of the command does not matter, you can write it on the same line.
- - The order of bam and peak files followed by `--ip_bams`, `input_bams`, and `peak_bed` 
-DOES matter, make sure you pass them in a consistent order for these three parameters.
+ - The order of bam and peak files followed by `--ip_bams`, `input_bams`, and `peak_beds` 
+   DOES matter, make sure you pass them in a consistent order for these three parameters.
  - There are 3 cutoffs can be set for fine tune the peak filtering, see Usage part for 
-more details.
+   more details.
+ - If the pipeline failed, check the log to identify the error and make necessary changes,
+   re-run the pipeline will skip successfully processed parts only continue to processed 
+   failed and unprocessed parts.
    
 ## Output
 The peak pipeline will output 5 different types of files into the current work directory 
