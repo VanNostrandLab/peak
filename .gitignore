@@ -1,5 +1,6 @@
 ### Python template
-test
+tests
+peak/peak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
