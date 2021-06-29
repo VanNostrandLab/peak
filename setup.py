@@ -16,8 +16,8 @@ with open('README.md') as f:
     long_description = f.read()
 
 setup(
-    name='peak',
-    version='1.0.0',
+    name='eclip-peak',
+    version='1.0.1',
     description='Pipeline for using IDR to identify a set of reproducible peaks given eClIP dataset with '
                 'two or three replicates.',
     long_description=long_description,

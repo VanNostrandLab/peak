@@ -1,4 +1,4 @@
-# Peak
+# eCLIP-Peak
 
 Pipeline for using IDR to identify a set of reproducible peaks given eClIP dataset with two or three replicates.
 
@@ -11,7 +11,7 @@ Pipeline for using IDR to identify a set of reproducible peaks given eClIP datas
   
 - For all others:
     - Install Python (3.6+)
-    - Install peak (`pip install peak`)
+    - Install peak (`pip install eclip-peak`)
     - Install [IDR](https://github.com/nboley/idr) (2.0.3+)
     - Install Perl (5.10.1+) with the following packages:
         - Statistics::Basic (`cpanm install Statistics::Basic`)
