@@ -17,7 +17,7 @@ with open('README.md') as f:
 
 setup(
     name='peak',
-    version='0.1.1',
+    version='1.0.0',
     description='Pipeline for using IDR to identify a set of reproducible peaks given eClIP dataset with '
                 'two or three replicates.',
     long_description=long_description,
