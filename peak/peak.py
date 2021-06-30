@@ -228,6 +228,7 @@ def intersect_idr(bed, intersected_bed):
         idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
         idr_intersected_bed = f'{outdir}/{".vs.".join(basenames)}.idr.intersected.bed'
         cmder.run(f'cp {idr_out} {idr_intersected_bed}')
+        need_to_remove.append(idr_intersected_bed)
     elif len(files) == 3:
         idr_intersected_bed = f'{outdir}/{".vs.".join(basenames)}.idr.intersected.bed'
         idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
