@@ -68,12 +68,19 @@ def validate_paths():
         logger.error(f'Outdir "{outdir}" does not exist.')
         os.mkdir(outdir)
 
-    files, basenames = {}, []
+    files, basenames, need_to_remove = {}, [], []
     if len(ip_bams) == len(input_bams) == len(peak_beds):
         if len(ip_bams) >= 2:
             for ip_bam, input_bam, peak_bed in zip(ip_bams, input_bams, peak_beds):
-                basename = os.path.basename(peak_bed).replace('.peak.clusters.bed', '')
-                files[basename] = (ip_bam, input_bam, peak_bed,
+                if peak_bed.endswith('.peak.clusters.bed'):
+                    link_bed = peak_bed
+                else:
+                    link_bed = f'{outdir}/{os.path.basename(peak_bed)}.peak.clusters.bed'
+                    if not os.path.exists(link_bed):
+                        cmder.run(f'ln -s {peak_bed} {link_bed}')
+                    need_to_remove.append(link_bed)
+                basename = os.path.basename(link_bed).replace('.peak.clusters.bed', '')
+                files[basename] = (ip_bam, input_bam, link_bed,
                                    f'{outdir}/{basename}.peak.clusters.normalized.compressed.annotated.entropy.bed')
                 basenames.append(basename)
         else:
@@ -85,10 +92,10 @@ def validate_paths():
     if len(basenames) != len(set(basenames)):
         logger.error('Dataset contains duplicated basenames, process aborted!')
         sys.exit(1)
-    return files, basenames, outdir, args
+    return files, basenames, outdir, need_to_remove, args
 
 
-files, basenames, outdir, options = validate_paths()
+files, basenames, outdir, need_to_remove, options = validate_paths()
 
 
 @task(inputs=options.ip_bams + options.input_bams,
@@ -261,6 +268,11 @@ def reproducible_peak(inputs, reproducible_bed):
 def main():
     flow = Flow('Peak', description=__doc__.strip())
     flow.run(dry=options.dry_run)
+    if need_to_remove:
+        logger.info('Cleaning up ...')
+        for file in need_to_remove:
+            cmder.run(f'rm {file}')
+        logger.info('Cleaning up complete.')
 
 
 if __name__ == '__main__':
