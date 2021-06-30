@@ -6,7 +6,7 @@ import shutil
 import os
 
 script = 'peak/peak'
-shutil.copy(f'{script}.py', script)
+shutil.move(f'{script}.py', script)
 os.chmod(script, 0o755)
 
 scripts = glob.glob('peak/*.pl')
@@ -17,7 +17,7 @@ with open('README.md') as f:
 
 setup(
     name='eclip-peak',
-    version='1.0.1',
+    version='1.0.2',
     description='Pipeline for using IDR to identify a set of reproducible peaks given eClIP dataset with '
                 'two or three replicates.',
     long_description=long_description,

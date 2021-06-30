@@ -38,7 +38,7 @@ usage: peak [-h]
             [--read_type READ_TYPE] [--outdir OUTDIR] 
             [--species SPECIES] 
             [--l2fc L2FC] [--l10p L10P] [--idr IDR] 
-            [--dry_run] [--debug]
+            [--dry_run] [--cores] [--debug]
 
 Pipeline for using IDR to identify a set of reproducible peaks given eClIP dataset 
 with two or three replicates.
@@ -58,6 +58,7 @@ optional arguments:
   --l2fc L2FC           Only consider peaks at or above this l2fc cutoff, default: 3.
   --l10p L10P           Only consider peaks at or above this l10p cutoff, default: 3.
   --idr IDR             Only consider peaks at or above this idr score cutoff, default: 0.01.
+  --cores CORES         Maximum number of CPU cores for parallel processing, default: 1.
   --dry_run             Print out steps and inputs/outputs of each step without 
                         actually running the pipeline.
   --debug               Invoke debug mode (only for develop purpose).
