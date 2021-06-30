@@ -28,6 +28,7 @@ parser.add_argument('--species', type=str, help="Short code for species, e.g., h
 parser.add_argument('--l2fc', type=float, help="Only consider peaks at or above this l2fc cutoff.", default=3)
 parser.add_argument('--l10p', type=float, help="Only consider peaks at or above this l10p cutoff.", default=3)
 parser.add_argument('--idr', type=float, help="Only consider peaks at or above this idr score cutoff.", default=0.01)
+parser.add_argument('--cores', type=int, help='Maximum number of CPU cores for parallel processing.', default=1)
 parser.add_argument('--dry_run', action='store_true',
                     help='Print out steps and inputs/outputs of each step without actually running the pipeline.')
 parser.add_argument('--debug', action='store_true', help='Invoke debug mode (only for develop purpose).')
@@ -98,7 +99,7 @@ def validate_paths():
 files, basenames, outdir, need_to_remove, options = validate_paths()
 
 
-@task(inputs=options.ip_bams + options.input_bams,
+@task(inputs=options.ip_bams + options.input_bams, processes=args.cores,
       outputs=lambda i: os.path.join(outdir, os.path.basename(i)).replace('.bam', '.mapped.reads.count.txt'))
 def count_mapped_reads(bam, txt):
     cmd = f'samtools view -c -F 0x4 {bam} > {txt}'
@@ -112,7 +113,7 @@ def get_mapped_reads(bam):
 
 @task(inputs=[v[2] for v in files.values()],
       outputs=lambda i: os.path.join(outdir, os.path.basename(i)).replace('.bed', '.normalized.bed'),
-      parent=count_mapped_reads)
+      parent=count_mapped_reads, processes=args.cores)
 def normalize_peak(bed, normalized_bed):
     ip_bam, input_bam, peak_bed, _ = files[os.path.basename(bed).replace('.peak.clusters.bed', '')]
     ip_read_count, input_read_count = get_mapped_reads(ip_bam), get_mapped_reads(input_bam)
@@ -122,14 +123,14 @@ def normalize_peak(bed, normalized_bed):
     return normalized_bed
 
 
-@task(inputs=normalize_peak, outputs=lambda i: i.replace('.bed', '.compressed.bed'))
+@task(inputs=normalize_peak, outputs=lambda i: i.replace('.bed', '.compressed.bed'), processes=args.cores)
 def compress_peak(normalized_bed, compressed_bed):
     cmd = ['compress_peak.pl', normalized_bed.replace('.bed', '.tsv'), compressed_bed]
     cmder.run(cmd, msg=f'Compressing peaks in {normalized_bed} ...', pmt=True)
     return compressed_bed
 
 
-@task(inputs=compress_peak, outputs=lambda i: i.replace('.bed', '.annotated.bed'))
+@task(inputs=compress_peak, outputs=lambda i: i.replace('.bed', '.annotated.bed'), processes=args.cores)
 def annotate_peak(compressed_bed, annotated_bed):
     cmd = ['annotate_peak.pl', compressed_bed.replace('.bed', '.tsv'), annotated_bed, options.species, 'full']
     cmder.run(cmd, msg=f'Annotating peaks in {compressed_bed} ...', pmt=True)
@@ -169,7 +170,7 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
     return output
 
 
-@task(inputs=annotate_peak, outputs=lambda i: i.replace('.bed', '.entropy.bed'))
+@task(inputs=annotate_peak, outputs=lambda i: i.replace('.bed', '.entropy.bed'), processes=args.cores)
 def entropy_peak(annotated_bed, entropy_bed):
     basename = os.path.basename(annotated_bed).replace('.peak.clusters.normalized.compressed.annotated.bed', '')
     ip_bam, input_bam, peak_bed, _ = files[basename]
@@ -178,7 +179,7 @@ def entropy_peak(annotated_bed, entropy_bed):
     return entropy_bed
 
 
-@task(inputs=[], parent=entropy_peak,
+@task(inputs=[], parent=entropy_peak, processes=args.cores,
       outputs=[f'{outdir}/{key1}.vs.{key2}.idr.out' for key1, key2 in itertools.combinations(basenames, 2)])
 def run_idr(bed, out):
     key1, key2 = os.path.basename(out).replace('.idr.out', '').split('.vs.')
@@ -189,7 +190,7 @@ def run_idr(bed, out):
               pmt=True)
 
 
-@task(inputs=[], parent=run_idr,
+@task(inputs=[], parent=run_idr, processes=args.cores,
       outputs=[f'{outdir}/{key1}.vs.{key2}.idr.out.bed' for key1, key2 in itertools.combinations(basenames, 2)])
 def parse_idr(out, bed):
     key1, key2 = os.path.basename(bed).replace('.idr.out.bed', '').split('.vs.')
@@ -235,7 +236,8 @@ def intersect_idr(bed, intersected_bed):
         cmder.run(cmd, msg=f'Parsing intersected IDR peaks in {idr_bed} ...', pmt=True)
 
 
-@task(inputs=[], outputs=[f'{outdir}/{key}.idr.normalized.bed' for key in files], parent=intersect_idr)
+@task(inputs=[], outputs=[f'{outdir}/{key}.idr.normalized.bed' for key in files],
+      parent=intersect_idr, processes=args.cores)
 def normalize_idr(bed, idr_normalized_bed):
     idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
     key = os.path.basename(idr_normalized_bed).replace('.idr.normalized.bed', '')
