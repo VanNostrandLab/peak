@@ -9,8 +9,8 @@ use Statistics::Distributions;
 use Statistics::R;
 my $R = Statistics::R->new();
 
-unless ($ARGV[0] && $ARGV[1] && $ARGV[2] && $ARGV[3] && $ARGV[4] && $ARGV[5]) {
-    print STDERR "usage: perl overlap_peak.pl IP_bam INPUT_bam peak_bed ip_mapped_read_number input_mapped_read_number read_type output_file\n\n";
+unless ($ARGV[0] && $ARGV[1] && $ARGV[2] && $ARGV[3] && $ARGV[4] && $ARGV[5] && $ARGV[6] && $ARGV[7]) {
+    print STDERR "usage: perl overlap_peak.pl IP_bam INPUT_bam peak_bed ip_mapped_read_number input_mapped_read_number read_type output_file output_full\n\n";
     exit;
 }
 
@@ -22,6 +22,7 @@ $mapped_read_count{"ip"} = $ARGV[3];
 $mapped_read_count{"input"} = $ARGV[4];
 my $read_type = $ARGV[5];
 my $output = $ARGV[6];
+my $output_full = $ARGV[7];
 
 my $verbose = 0;
 my %precalculated_fisher;
@@ -42,8 +43,6 @@ my %peak_read_counts;
 &read_bam($ip_bam,"ip");
 &read_bam($input_bam,"input");
 
-my $output_full = $output;
-$output_full =~ s/\.bed/.tsv/;
 open(OUT,">$output");
 open(OUTFULL,">$output_full");
 
