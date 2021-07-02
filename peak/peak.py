@@ -75,13 +75,14 @@ def validate_paths():
                 if peak_bed.endswith('.peak.clusters.bed'):
                     link_bed = peak_bed
                 else:
-                    link_bed = f'{outdir}/{os.path.basename(peak_bed)}.peak.clusters.bed'
+                    link_bed = os.path.join(outdir, f'{os.path.basename(peak_bed)}.peak.clusters.bed')
                     if not os.path.exists(link_bed):
                         cmder.run(f'ln -s {os.path.abspath(peak_bed)} {link_bed}')
                     need_to_remove.append(link_bed)
                 basename = os.path.basename(link_bed).replace('.peak.clusters.bed', '')
+                suffix = 'peak.clusters.normalized.compressed.annotated.entropy.bed'
                 files[basename] = (ip_bam, input_bam, link_bed,
-                                   f'{outdir}/{basename}.peak.clusters.normalized.compressed.annotated.entropy.bed')
+                                   os.path.join(outdir, f'{basename}.{suffix}'))
                 basenames.append(basename)
         else:
             logger.error('Dataset does not have enough replicates (at least 2) to proceed.')
@@ -189,7 +190,8 @@ def entropy_peak(annotated_bed, entropy_bed):
 
 
 @task(inputs=[], parent=entropy_peak, processes=args.cores,
-      outputs=[f'{outdir}/{key1}.vs.{key2}.idr.out' for key1, key2 in itertools.combinations(basenames, 2)])
+      outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
+               for key1, key2 in itertools.combinations(basenames, 2)])
 def run_idr(bed, out):
     key1, key2 = right_replace(os.path.basename(out), '.idr.out', '').split('.vs.')
     entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
@@ -200,10 +202,12 @@ def run_idr(bed, out):
 
 
 @task(inputs=[], parent=run_idr, processes=args.cores,
-      outputs=[f'{outdir}/{key1}.vs.{key2}.idr.out.bed' for key1, key2 in itertools.combinations(basenames, 2)])
+      outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
+               for key1, key2 in itertools.combinations(basenames, 2)])
 def parse_idr(out, bed):
     key1, key2 = right_replace(os.path.basename(bed), '.idr.out.bed', '').split('.vs.')
-    idr_out, idr_bed = f'{outdir}/{key1}.vs.{key2}.idr.out', f'{outdir}/{key1}.vs.{key2}.idr.out.bed'
+    idr_out = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
+    idr_out, idr_bed = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
     if len(files) == 2:
         entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
         cmd = ['parse_idr_peaks_2.pl', idr_out,
@@ -221,35 +225,35 @@ def parse_idr(out, bed):
                     o.write(f'{chrom}\t{start}\t{stop}\t.\t.\t{strand}\n')
                         
 
-@task(inputs=[], outputs=f'{outdir}/{".vs.".join(basenames)}.idr.out.bed', parent=parse_idr)
+@task(inputs=[], outputs=os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed'), parent=parse_idr)
 def intersect_idr(bed, intersected_bed):
     if len(files) == 2:
-        idr_out = f'{outdir}/{".vs.".join(basenames)}.idr.out',
-        idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
-        idr_intersected_bed = f'{outdir}/{".vs.".join(basenames)}.idr.intersected.bed'
+        idr_out = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out')
+        idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
+        idr_intersected_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.intersected.bed')
         cmder.run(f'cp {idr_out} {idr_intersected_bed}')
         need_to_remove.append(idr_intersected_bed)
     elif len(files) == 3:
-        idr_intersected_bed = f'{outdir}/{".vs.".join(basenames)}.idr.intersected.bed'
-        idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
+        idr_intersected_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.intersected.bed')
+        idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
 
-        bed1, bed2, bed3 = [f'{outdir}/{key1}.vs.{key2}.idr.out.bed'
+        bed1, bed2, bed3 = [os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
                             for key1, key2 in itertools.combinations(basenames, 2)]
         tmp_bed = right_replace(idr_intersected_bed, '.bed', '.tmp.bed')
         cmder.run(f'bedtools intersect -a {bed1} -b {bed2} > {tmp_bed}', msg='Intersecting IDR beds ...')
         cmder.run(f'bedtools intersect -a {tmp_bed} -b {bed3} > {idr_intersected_bed}', msg='Intersecting IDR beds ...')
         cmder.run(f'rm {tmp_bed}')
         
-        entropy_beds = [f'{outdir}/{key}.peak.clusters.normalized.compressed.annotated.entropy.tsv'
+        entropy_beds = [os.path.join(outdir, f'{key}.peak.clusters.normalized.compressed.annotated.entropy.tsv')
                         for key in basenames]
         cmd = ['parse_idr_peaks_3.pl', idr_intersected_bed] + entropy_beds + [f'{idr_bed}']
         cmder.run(cmd, env=env, msg=f'Parsing intersected IDR peaks in {idr_bed} ...', pmt=True)
 
 
-@task(inputs=[], outputs=[f'{outdir}/{key}.idr.normalized.bed' for key in basenames],
+@task(inputs=[], outputs=[os.path.join(outdir, f'{key}.idr.normalized.bed' for key in basenames],
       parent=intersect_idr, processes=args.cores)
 def normalize_idr(bed, idr_normalized_bed):
-    idr_bed = f'{outdir}/{".vs.".join(basenames)}.idr.out.bed'
+    idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
     key = right_replace(os.path.basename(idr_normalized_bed), '.idr.normalized.bed', '')
     ip_bam, input_bam, peak_bed, _ = files[key]
 
@@ -259,7 +263,7 @@ def normalize_idr(bed, idr_normalized_bed):
     cmder.run(cmd, env=env, msg=f'Normalizing IDR peaks for sample {key} ...', pmt=True)
         
 
-@task(inputs=[], outputs=f'{outdir}/{".vs.".join([key for key in basenames])}.reproducible.peaks.bed',
+@task(inputs=[], outputs=os.path.join(outdir, f'{".vs.".join([key for key in basenames])}.reproducible.peaks.bed'),
       parent=normalize_idr)
 def reproducible_peak(inputs, reproducible_bed):
     script = f'reproducible_peaks_{len(files)}.pl'
@@ -267,13 +271,14 @@ def reproducible_peak(inputs, reproducible_bed):
     idr_normalized_full_beds, entropy_full_beds, reproducible_txts = [], [], []
     for ip_bam, input_bam, peak_bed in zip(options.ip_bams, options.input_bams, options.peak_beds):
         name = right_replace(os.path.basename(peak_bed), '.peak.clusters.bed', '')
-        idr_normalized_full_beds.append(f'{outdir}/{name}.idr.normalized.tsv')
-        entropy_full_beds.append(f'{outdir}/{name}.peak.clusters.normalized.compressed.annotated.entropy.tsv')
-        reproducible_txts.append(f'{outdir}/{name}.reproducible.peaks.tsv')
+        idr_normalized_full_beds.append(os.path.join(outdir, f'{name}.idr.normalized.tsv'))
+        suffix = 'peak.clusters.normalized.compressed.annotated.entropy.tsv'
+        entropy_full_beds.append(os.path.join(outdir, f'{name}.{suffix}'))
+        reproducible_txts.append(os.path.join(outdir, f'{name}.reproducible.peaks.tsv'))
 
     cmd = [script] + idr_normalized_full_beds + reproducible_txts
     cmd += [reproducible_bed, custom] + entropy_full_beds
-    cmd += [f'{outdir}/{".vs.".join(basenames)}.idr.out{".bed" if len(files) == 3 else ""}']
+    cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out{".bed" if len(files) == 3 else ""}')]
     cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
 
 
