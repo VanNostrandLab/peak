@@ -10,6 +10,7 @@ import sys
 import math
 import argparse
 import itertools
+from subprocess import DEVNULL
 
 import cmder
 import inflect
@@ -20,6 +21,7 @@ parser = argparse.ArgumentParser(description=__doc__, prog='peak')
 parser.add_argument('--ip_bams', nargs='+', help='Space separated IP bam files (at least 2 files).')
 parser.add_argument('--input_bams', nargs='+', help='Space separated INPUT bam files (at least 2 files).')
 parser.add_argument('--peak_beds', nargs='+', help="Space separated peak bed files (at least 2 files).")
+parser.add_argument('--ids', nargs='+', help="Space separated short IDs (e.g., S1, S2, S3) for datasets.")
 parser.add_argument('--read_type', help="Read type of eCLIP experiment, either SE or PE.", default='PE')
 parser.add_argument('--outdir', type=str, help="Path to output directory.")
 parser.add_argument('--species', type=str, help="Short code for species, e.g., hg19, mm10.")
@@ -55,6 +57,11 @@ def validate_paths():
                 sys.exit(1)
         return paths
 
+    def link_file(file, link):
+        if not os.path.exists(link):
+            os.symlink(file, link)
+        return link
+
     ip_bams = files_exist(args.ip_bams, 'IP bams')
     input_bams = files_exist(args.input_bams, 'INPUT bams')
     peak_beds = files_exist(args.peak_beds, 'Peak beds')
@@ -68,21 +75,28 @@ def validate_paths():
         os.mkdir(outdir)
         logger.error(f'Successfully created Outdir "{outdir}".')
 
-    files, basenames, need_to_remove = {}, [], []
-    if len(ip_bams) == len(input_bams) == len(peak_beds):
+    bams, files, basenames, need_to_remove, name_codes = [], {}, [], [], {}
+    ids = args.ids if args.ids else [''] * len(peak_beds)
+    if len(ip_bams) == len(input_bams) == len(peak_beds) == len(ids):
         if len(ip_bams) >= 2:
-            for ip_bam, input_bam, peak_bed in zip(ip_bams, input_bams, peak_beds):
+            for i, (ip_bam, input_bam, peak_bed, name) in enumerate(zip(ip_bams, input_bams, peak_beds, ids), start=1):
                 if peak_bed.endswith('.peak.clusters.bed'):
-                    link_bed = peak_bed
+                    link_ip_bam, link_input_bam, link_bed = ip_bam, input_bam, peak_bed
+                    bams.extend([ip_bam, input_bam])
+                    basename = right_replace(os.path.basename(ip_bam), '.bam')
                 else:
-                    link_bed = os.path.join(outdir, f'{os.path.basename(peak_bed)}.peak.clusters.bed')
-                    if not os.path.exists(link_bed):
-                        cmder.run(f'ln -s {os.path.abspath(peak_bed)} {link_bed}')
-                    need_to_remove.append(link_bed)
-                basename = os.path.basename(link_bed).replace('.peak.clusters.bed', '')
+                    basename = name if name else f'S{i}'
+                    link_ip_bam = link_file(ip_bam, os.path.join(outdir, f'{basename}.IP.bam'))
+                    link_input_bam = link_file(input_bam, os.path.join(outdir, f'{basename}.INPUT.bam'))
+                    link_bed = link_file(peak_bed, os.path.join(outdir, f'{basename}.peak.clusters.bed'))
+
+                    bams.extend([link_ip_bam, link_input_bam])
+                    need_to_remove.extend([link_ip_bam, link_input_bam, link_bed])
+
+                    name_codes[basename] = (ip_bam, input_bam, peak_bed)
+
                 suffix = 'peak.clusters.normalized.compressed.annotated.entropy.bed'
-                files[basename] = (ip_bam, input_bam, link_bed,
-                                   os.path.join(outdir, f'{basename}.{suffix}'))
+                files[basename] = (link_ip_bam, link_input_bam, link_bed, os.path.join(outdir, f'{basename }.{suffix}'))
                 basenames.append(basename)
         else:
             logger.error('Dataset does not have enough replicates (at least 2) to proceed.')
@@ -93,7 +107,11 @@ def validate_paths():
     if len(basenames) != len(set(basenames)):
         logger.error('Dataset contains duplicated basenames, process aborted!')
         sys.exit(1)
-    return files, basenames, outdir, need_to_remove, args
+    if name_codes:
+        with open(os.path.join(outdir, 'name.maps.tsv'), 'w') as o:
+            o.write('CODE\tIP_BAM\tINPUT_BAM\tPEAK_BED\n')
+            o.writelines(f'{k}\t{v[0]}\t{v[1]}\t{v[2]}\n' for k, v in name_codes.items())
+    return bams, files, basenames, outdir, need_to_remove, args
 
 
 def right_replace(s, src, tar):
@@ -102,13 +120,13 @@ def right_replace(s, src, tar):
     return s
 
 
-files, basenames, outdir, need_to_remove, options = validate_paths()
+bams, files, basenames, outdir, need_to_remove, options = validate_paths()
 env = os.environ.copy()
 if options.debug:
     env['PATH'] = f'{os.path.dirname(os.path.abspath(__file__))}:{env["PATH"]}'
 
 
-@task(inputs=options.ip_bams + options.input_bams, processes=args.cores,
+@task(inputs=bams, processes=args.cores,
       outputs=lambda i: right_replace(os.path.join(outdir, os.path.basename(i)), '.bam', '.mapped.reads.count.txt'))
 def count_mapped_reads(bam, txt):
     cmd = f'samtools view -c -F 0x4 {bam} > {txt}'
@@ -207,7 +225,7 @@ def run_idr(bed, out):
 def parse_idr(out, bed):
     key1, key2 = right_replace(os.path.basename(bed), '.idr.out.bed', '').split('.vs.')
     idr_out = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
-    idr_out, idr_bed = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
+    idr_bed = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
     if len(files) == 2:
         entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
         cmd = ['parse_idr_peaks_2.pl', idr_out,
@@ -250,7 +268,7 @@ def intersect_idr(bed, intersected_bed):
         cmder.run(cmd, env=env, msg=f'Parsing intersected IDR peaks in {idr_bed} ...', pmt=True)
 
 
-@task(inputs=[], outputs=[os.path.join(outdir, f'{key}.idr.normalized.bed' for key in basenames],
+@task(inputs=[], outputs=[os.path.join(outdir, f'{key}.idr.normalized.bed') for key in basenames],
       parent=intersect_idr, processes=args.cores)
 def normalize_idr(bed, idr_normalized_bed):
     idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
@@ -269,7 +287,7 @@ def reproducible_peak(inputs, reproducible_bed):
     script = f'reproducible_peaks_{len(files)}.pl'
     custom = right_replace(reproducible_bed, '.peaks.bed', '.peaks.custom.tsv')
     idr_normalized_full_beds, entropy_full_beds, reproducible_txts = [], [], []
-    for ip_bam, input_bam, peak_bed in zip(options.ip_bams, options.input_bams, options.peak_beds):
+    for (ip_bam, input_bam, peak_bed, _) in files.values():
         name = right_replace(os.path.basename(peak_bed), '.peak.clusters.bed', '')
         idr_normalized_full_beds.append(os.path.join(outdir, f'{name}.idr.normalized.tsv'))
         suffix = 'peak.clusters.normalized.compressed.annotated.entropy.tsv'
@@ -279,7 +297,7 @@ def reproducible_peak(inputs, reproducible_bed):
     cmd = [script] + idr_normalized_full_beds + reproducible_txts
     cmd += [reproducible_bed, custom] + entropy_full_beds
     cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out{".bed" if len(files) == 3 else ""}')]
-    cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
+    cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True, stdout=DEVNULL, stderr=DEVNULL)
 
 
 def main():
