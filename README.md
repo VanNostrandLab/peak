@@ -51,6 +51,7 @@ optional arguments:
                         Space separated INPUT bam files (at least 2 files).
   --peak_beds PEAK_BEDS [PEAK_BEDS ...]
                         Space separated peak bed files (at least 2 files).
+  --ids IDS [IDS ...]   Optional space separated short IDs (e.g., S1, S2, S3) for datasets.
   --read_type READ_TYPE
                         Read type of eCLIP experiment, either SE or PE.
   --outdir OUTDIR       Path to output directory.
