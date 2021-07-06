@@ -74,7 +74,7 @@ for my $idrregion (keys %idrregion2peaks) {
         #	    print STDERR "peak $peak rep1_idr_merged_full_bed $rep1_idr_merged_full_bed rep2_idr_merged_full_bed $rep2_idr_merged_full_bed rep3_idr_merged_full_bed $rep3_idr_merged_full_bed\n";
         #	    print STDERR "rep1 ".$peak_info{$peak}{$rep1_idr_merged_full_bed}{l2fc}." rep2 ".$peak_info{$peak}{$rep2_idr_merged_full_bed}{l2fc}." rep3 ".$peak_info{$peak}{$rep3_idr_merged_full_bed}{l2fc}."\n";
         }
-        $peak_geommean{$peak} = $geometric_mean;
+        $peak_geommean{$peak} = sprintf("%.7f",$geometric_mean);
 
         my ($chr,$pos,$str) = split(/\:/,$peak);
         my ($start,$stop) = split(/\-/,$pos);
@@ -87,12 +87,22 @@ for my $idrregion (keys %idrregion2peaks) {
         $peak_start{$b} <=> $peak_start{$a} ||
         $peak_stop{$b} <=> $peak_stop{$a}} keys %peak_geommean;
     #    my @sorted_peak_geommeans = sort {$peak_geommean{$b} <=> $peak_geommean{$a}} keys %peak_geommean;
-    $idrregion2maxgeommean{$idrregion} = $peak_geommean{$sorted_peak_geommeans[0]};
+    $idrregion2maxgeommean{$idrregion}{geom} = $peak_geommean{$sorted_peak_geommeans[0]};
+
+    my ($idrreg_chr,$idrreg_pos,$idrreg_str,$idrreg_val) = split(/\:/,$idrregion);
+    my ($idrreg_start,$idrreg_stop) = split(/\-/,$idrreg_pos);
+    $idrregion2maxgeommean{$idrregion}{len} = $idrreg_stop - $idrreg_start;
+    $idrregion2maxgeommean{$idrregion}{start} = $idrreg_start;
+    $idrregion2maxgeommean{$idrregion}{stop} = $idrreg_stop;
 }
 
 my %already_used_peaks;
+my @already_used_peaks_array;
 
-my @sorted_idrregions = sort {$idrregion2maxgeommean{$b} <=> $idrregion2maxgeommean{$a}} keys %idrregion2maxgeommean;
+my @sorted_idrregions = sort {$idrregion2maxgeommean{$b}{geom} <=> $idrregion2maxgeommean{$a}{geom} ||
+				  $idrregion2maxgeommean{$b}{len} <=> $idrregion2maxgeommean{$a}{len} ||
+				  $idrregion2maxgeommean{$a}{start} <=> $idrregion2maxgeommean{$b}{start} ||
+				  $idrregion2maxgeommean{$a}{stop} <=> $idrregion2maxgeommean{$b}{stop}} keys %idrregion2maxgeommean;
 for my $idrregion (@sorted_idrregions) {
     my %peak_geommean;
     my %peak_len;
@@ -102,28 +112,32 @@ for my $idrregion (@sorted_idrregions) {
         my $geometric_mean = log(( (2 ** $peak_info{$peak}{$rep1_idr_merged_full_bed}{l2fc}) *
             (2 ** $peak_info{$peak}{$rep2_idr_merged_full_bed}{l2fc}) *
             (2 ** $peak_info{$peak}{$rep3_idr_merged_full_bed}{l2fc}) ) ** (1/3))/log(2);
-        $peak_geommean{$peak} = $geometric_mean;
+        $peak_geommean{$peak} = sprintf("%.7f",$geometric_mean);
         my ($chr,$pos,$str) = split(/\:/,$peak);
         my ($start,$stop) = split(/\-/,$pos);
         $peak_len{$peak} = $stop - $start;
         $peak_start{$peak} = $start;
         $peak_stop{$peak} = $stop;
     }
+
     my @peaks_sorted = sort {$peak_geommean{$b} <=> $peak_geommean{$a} ||
-        $peak_len{$b} <=> $peak_len{$a} ||
-        $peak_start{$b} <=> $peak_start{$a} ||
-        $peak_stop{$b} <=> $peak_stop{$a}} keys %peak_geommean;
+				 $peak_len{$b} <=> $peak_len{$a} ||
+				 $peak_start{$a} <=> $peak_start{$b} ||
+				 $peak_stop{$a} <=> $peak_stop{$b}} keys %peak_geommean;
+    
+#    print BEDOUT "IDR region $idrregion geom $idrregion2maxgeommean{$idrregion}{geom} len $idrregion2maxgeommean{$idrregion}{len} start $idrregion2maxgeommean{$idrregion}{start} stop $idrregion2maxgeommean{$idrregion}{stop}\n";
 
     for my $peak (@peaks_sorted) {
         #first check if overlaps existing 
-	    next if (exists $already_used_peaks{$peak});
+	next if (exists $already_used_peaks{$peak});
         my ($chr,$pos,$str) = split(/\:/,$peak);
         my ($start,$stop) = split(/\-/,$pos);
+	
+	my $flag = 0;
 
-        my $flag = 0;
-        for my $peak2 (keys %already_used_peaks) {
-            my ($chr2,$pos2,$str2) = split(/\:/,$peak2);
-            my ($start2,$stop2) = split(/\-/,$pos2);
+	for my $peak2 (@already_used_peaks_array) {
+	    my ($chr2,$pos2,$str2) = split(/\:/,$peak2);
+	    my ($start2,$stop2) = split(/\-/,$pos2);
 
             next if ($start2 >= $stop);
             next if ($start >= $stop2);
@@ -139,6 +153,7 @@ for my $idrregion (@sorted_idrregions) {
             $peak_info{$peak}{$rep3_idr_merged_full_bed}{l10p} >= $l10p_cutoff);
 
         $already_used_peaks{$peak} = 1;
+	push @already_used_peaks_array,$peak;
 
         print CUSTOMOUT "".$idrregion."\t".$peak."\t".$peak_geommean{$peak}."\t".
             $peak_info{$peak}{$rep1_idr_merged_full_bed}{l2fc}."\t".
@@ -178,28 +193,29 @@ for my $idrregion (@sorted_idrregions) {
     }
     for my $peak (@peaks_sorted) {
         #first check if overlaps existing
-	    next if (exists $already_used_peaks{$peak});
-
+	next if (exists $already_used_peaks{$peak});
+	
         my ($chr,$pos,$str) = split(/\:/,$peak);
         my ($start,$stop) = split(/\-/,$pos);
 
         my $flag = 0;
         next if (exists $already_used_peaks{$peak});
-
-        for my $peak2 (keys %already_used_peaks) {
+	
+        for my $peak2 (@already_used_peaks_array) {
             my ($chr2,$pos2,$str2) = split(/\:/,$peak2);
             my ($start2,$stop2) = split(/\-/,$pos2);
-
+	    
             next if ($start2 >=$stop);
             next if ($start >= $stop2);
             $flag = 1;
         }
         next if ($flag == 1);
-
+	
         # ok doesn't overlap existing
 
         #second time through - check all genes
         $already_used_peaks{$peak} = 1;
+	push @already_used_peaks_array,$peak;
 
         print CUSTOMOUT "".$idrregion."\t".$peak."\t".$peak_geommean{$peak}."\t".
             $peak_info{$peak}{$rep1_idr_merged_full_bed}{l2fc}."\t".
