@@ -8,9 +8,20 @@ print $ARGV[5];
 
 my $hashing_value = 10000;
 my $l2fc_cutoff = 3;
+if (exists $ARGV[9]) {
+    $l2fc_cutoff = $ARGV[9];
+}
+
 my $l10p_cutoff = 3;
+if (exists $ARGV[10]) {
+    $l10p_cutoff = $ARGV[10];
+}
 
 my $idr_cutoff = 0.01;
+if (exists $ARGV[11]) {
+    $idr_cutoff = $ARGV[11];
+}
+
 my %idr_cutoffs = ("0.001" => "1000", "0.005" => "955", "0.01" => "830", "0.02" => "705", "0.03" => "632",
     "0.04" => "580", "0.05" => "540", "0.06" => "507", "0.07" => "479", "0.08" => "455", "0.09" => "434",
     "0.1" => "415", "0.2" => "290", "0.3" => "217", "0.4" => "165", "0.5" => "125", "1" => "0");
@@ -45,15 +56,28 @@ my %peak_info;
 
 
 my $count_significant=0;
-for my $idr_region (keys %idr_region2peaks) {
+my @sorted_idrregions = sort {$idr_region2peaks{$b} <=> $idr_region2peaks{$a}} keys %idr_region2peaks;
+for my $idr_region (@sorted_idrregions) {
+# for my $idr_region (keys %idr_region2peaks) {
     my %peak_geo_mean;
+    my %peak_len;
+    my %peak_start;
+    my %peak_stop;
     for my $peak (keys %{$idr_region2peaks{$idr_region}}) {
         my $geometric_mean = log(sqrt((2 ** $peak_info{$peak}{$rep1_idr_merged_full_bed}{l2fc}) *
                                  (2 ** $peak_info{$peak}{$rep2_idr_merged_full_bed}{l2fc}) ))/log(2);
         $peak_geo_mean{$peak} = $geometric_mean;
+        my ($chr,$pos,$str) = split(/\:/,$peak);
+        my ($start,$stop) = split(/\-/,$pos);
+        $peak_len{$peak} = $stop - $start;
+        $peak_start{$peak} = $start;
+        $peak_stop{$peak} = $stop;
     }
 
-    my @peaks_sorted = sort {$peak_geo_mean{$b} <=> $peak_geo_mean{$a}} keys %peak_geo_mean;
+    my @peaks_sorted = sort {$peak_geo_mean{$b} <=> $peak_geo_mean{$a} ||
+        $peak_len{$b} <=> $peak_len{$a} ||
+        $peak_start{$b} <=> $peak_start{$a} ||
+        $peak_stop{$b} <=> $peak_stop{$a}} keys %peak_geo_mean;
     my %already_used_peaks;
     for my $peak (@peaks_sorted) {
         my ($chr, $pos, $str) = split(/\:/, $peak);

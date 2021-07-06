@@ -13,6 +13,7 @@ unless ($ARGV[0] && $ARGV[1] && $ARGV[2] && $ARGV[3]) {
     print STDERR "Usage: perl parse_idr_peaks.pl idr_peak_file peak_file1 peak_file2 [l2fc_cutoff] [l10p_cutoff]\n\n";
     exit;
 }
+
 my $l2fc_cutoff = 3;
 if (exists $ARGV[4]) {
     $l2fc_cutoff = $ARGV[4];
@@ -23,6 +24,10 @@ if (exists $ARGV[5]) {
 }
 
 my $idr_cutoff = 0.01;
+if (exists $ARGV[6]) {
+    $l10p_cutoff = $ARGV[6];
+}
+
 my %idr_cutoffs = ("0.001" => "1000", "0.005" => "955", "0.01" => "830", "0.02" => "705", "0.03" => "632",
     "0.04" => "580", "0.05" => "540", "0.06" => "507", "0.07" => "479", "0.08" => "455", "0.09" => "434",
     "0.1" => "415", "0.2" => "290", "0.3" => "217", "0.4" => "165", "0.5" => "125", "1" => "0");
