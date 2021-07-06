@@ -21,14 +21,20 @@ parser = argparse.ArgumentParser(description=__doc__, prog='peak')
 parser.add_argument('--ip_bams', nargs='+', help='Space separated IP bam files (at least 2 files).')
 parser.add_argument('--input_bams', nargs='+', help='Space separated INPUT bam files (at least 2 files).')
 parser.add_argument('--peak_beds', nargs='+', help="Space separated peak bed files (at least 2 files).")
-parser.add_argument('--ids', nargs='+', help="Optional space separated short IDs (e.g., S1, S2, S3) for datasets.")
+parser.add_argument('--outdir', type=str, help="Path to output directory, default: current work directory.")
+parser.add_argument('--ids', nargs='+', help="Optional space separated short IDs (e.g., S1, S2, S3) for datasets, "
+                                             "default: S1 and S2 for 2 replicates dataset and S1, S2, S3 for 3"
+                                             "replicates dataset.")
 parser.add_argument('--read_type', help="Read type of eCLIP experiment, either SE or PE.", default='PE')
-parser.add_argument('--outdir', type=str, help="Path to output directory.")
-parser.add_argument('--species', type=str, help="Short code for species, e.g., hg19, mm10.")
-parser.add_argument('--l2fc', type=float, help="Only consider peaks at or above this l2fc cutoff.", default=3)
-parser.add_argument('--l10p', type=float, help="Only consider peaks at or above this l10p cutoff.", default=3)
-parser.add_argument('--idr', type=float, help="Only consider peaks at or above this idr score cutoff.", default=0.01)
-parser.add_argument('--cores', type=int, help='Maximum number of CPU cores for parallel processing.', default=1)
+parser.add_argument('--species', type=str, help="Short code for species, e.g., hg19, mm10, default: hg19.")
+parser.add_argument('--l2fc', type=float, help="Only consider peaks at or above this l2fc cutoff, default: 3",
+                    default=3.0)
+parser.add_argument('--l10p', type=float, help="Only consider peaks at or above this l10p cutoff, default:3",
+                    default=3.0)
+parser.add_argument('--idr', type=float, help="Only consider peaks at or above this idr score cutoff, default: 0.01",
+                    default=0.01)
+parser.add_argument('--cores', type=int, help='Maximum number of CPU cores for parallel processing, default: 1',
+                    default=1)
 parser.add_argument('--dry_run', action='store_true',
                     help='Print out steps and inputs/outputs of each step without actually running the pipeline.')
 parser.add_argument('--debug', action='store_true', help='Invoke debug mode (only for develop purpose).')
@@ -51,7 +57,7 @@ def validate_paths():
                     logger.error(f'The {engine.ordinal(i)} file in {tag} "{file}" is not a file.')
                     sys.exit(1)
                 else:
-                    paths.append(file)
+                    paths.append(os.path.abspath(file))
             else:
                 logger.error(f'The {engine.ordinal(i)} file in {tag} "{file}" does not exist.')
                 sys.exit(1)
@@ -83,7 +89,7 @@ def validate_paths():
                 if peak_bed.endswith('.peak.clusters.bed'):
                     link_ip_bam, link_input_bam, link_bed = ip_bam, input_bam, peak_bed
                     bams.extend([ip_bam, input_bam])
-                    basename = right_replace(os.path.basename(ip_bam), '.bam')
+                    basename = right_replace(os.path.basename(ip_bam), '.bam', '')
                 else:
                     basename = name if name else f'S{i}'
                     link_ip_bam = link_file(ip_bam, os.path.join(outdir, f'{basename}.IP.bam'))
@@ -229,7 +235,8 @@ def parse_idr(out, bed):
     if len(files) == 2:
         entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
         cmd = ['parse_idr_peaks_2.pl', idr_out,
-               right_replace(entropy_bed1, '.bed', '.tsv'), right_replace(entropy_bed2, '.bed', '.tsv'), idr_bed]
+               right_replace(entropy_bed1, '.bed', '.tsv'), right_replace(entropy_bed2, '.bed', '.tsv'), idr_bed,
+               options.l2fc, options.l10p, options.idr]
         cmder.run(cmd, env=env, msg=f'Parsing IDR peaks in {idr_out} ...', pmt=True)
     else:
         idr_cutoffs = {0.001: 1000, 0.005: 955, 0.01: 830, 0.02: 705, 0.03: 632, 0.04: 580, 0.05: 540,
@@ -264,7 +271,8 @@ def intersect_idr(bed, intersected_bed):
         
         entropy_beds = [os.path.join(outdir, f'{key}.peak.clusters.normalized.compressed.annotated.entropy.tsv')
                         for key in basenames]
-        cmd = ['parse_idr_peaks_3.pl', idr_intersected_bed] + entropy_beds + [f'{idr_bed}']
+        cmd = ['parse_idr_peaks_3.pl', idr_intersected_bed] + entropy_beds + [f'{idr_bed}',
+                                                                              options.l2fc, options.l10p, options.idr]
         cmder.run(cmd, env=env, msg=f'Parsing intersected IDR peaks in {idr_bed} ...', pmt=True)
 
 
@@ -296,13 +304,14 @@ def reproducible_peak(inputs, reproducible_bed):
 
     cmd = [script] + idr_normalized_full_beds + reproducible_txts
     cmd += [reproducible_bed, custom] + entropy_full_beds
-    cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out{".bed" if len(files) == 3 else ""}')]
-    cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True, stdout=DEVNULL, stderr=DEVNULL)
+    cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr{".intersected.bed" if len(files) == 3 else ".out"}')]
+    cmd += [options.l2fc, options.l10p, options.idr]
+    cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
 
 
 def main():
     flow = Flow('Peak', description=__doc__.strip())
-    flow.run(dry=options.dry_run)
+    flow.run(dry=options.dry_run, processes=options.cores)
     if need_to_remove:
         logger.info('Cleaning up ...')
         for file in need_to_remove:
