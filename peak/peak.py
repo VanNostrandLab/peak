@@ -250,7 +250,7 @@ def parse_idr(out, bed):
                     o.write(f'{chrom}\t{start}\t{stop}\t.\t.\t{strand}\n')
                         
 
-@task(inputs=[], outputs=os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed'), parent=parse_idr)
+@task(inputs=[], outputs=[os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')], parent=parse_idr)
 def intersect_idr(bed, intersected_bed):
     if len(files) == 2:
         idr_out = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out')
@@ -289,7 +289,7 @@ def normalize_idr(bed, idr_normalized_bed):
     cmder.run(cmd, env=env, msg=f'Normalizing IDR peaks for sample {key} ...', pmt=True)
         
 
-@task(inputs=[], outputs=os.path.join(outdir, f'{".vs.".join([key for key in basenames])}.reproducible.peaks.bed'),
+@task(inputs=[], outputs=[os.path.join(outdir, f'{".vs.".join([key for key in basenames])}.reproducible.peaks.bed')],
       parent=normalize_idr)
 def reproducible_peak(inputs, reproducible_bed):
     if len(files) == 1:
