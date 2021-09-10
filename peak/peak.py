@@ -132,7 +132,7 @@ if options.debug:
     env['PATH'] = f'{os.path.dirname(os.path.abspath(__file__))}:{env["PATH"]}'
 
 
-@task(inputs=bams, processes=args.cores,
+@task(inputs=bams, cpus=args.cores,
       outputs=lambda i: right_replace(os.path.join(outdir, os.path.basename(i)), '.bam', '.mapped.reads.count.txt'))
 def count_mapped_reads(bam, txt):
     cmd = f'samtools view -c -F 0x4 {bam} > {txt}'
@@ -146,7 +146,7 @@ def get_mapped_reads(bam):
 
 @task(inputs=[v[2] for v in files.values()],
       outputs=lambda i: right_replace(os.path.join(outdir, os.path.basename(i)), '.bed', '.normalized.bed'),
-      parent=count_mapped_reads, processes=args.cores)
+      parent=count_mapped_reads, cpus=args.cores)
 def normalize_peak(bed, normalized_bed):
     ip_bam, input_bam, peak_bed, _ = files[right_replace(os.path.basename(bed), '.peak.clusters.bed', '')]
     ip_read_count, input_read_count = get_mapped_reads(ip_bam), get_mapped_reads(input_bam)
@@ -156,7 +156,7 @@ def normalize_peak(bed, normalized_bed):
     return normalized_bed
 
 
-@task(inputs=normalize_peak, outputs=lambda i: right_replace(i, '.bed', '.compressed.bed'), processes=args.cores)
+@task(inputs=normalize_peak, outputs=lambda i: right_replace(i, '.bed', '.compressed.bed'), cpus=args.cores)
 def compress_peak(normalized_bed, compressed_bed):
     cmd = ['compress_peak.pl', right_replace(normalized_bed, '.bed', '.tsv'),
            compressed_bed, right_replace(compressed_bed, '.bed', '.tsv')]
@@ -164,7 +164,7 @@ def compress_peak(normalized_bed, compressed_bed):
     return compressed_bed
 
 
-@task(inputs=compress_peak, outputs=lambda i: right_replace(i, '.bed', '.annotated.bed'), processes=args.cores)
+@task(inputs=compress_peak, outputs=lambda i: right_replace(i, '.bed', '.annotated.bed'), cpus=args.cores)
 def annotate_peak(compressed_bed, annotated_bed):
     cmd = ['annotate_peak.pl', right_replace(compressed_bed, '.bed', '.tsv'), annotated_bed, options.species, 'full']
     cmder.run(cmd, env=env, msg=f'Annotating peaks in {compressed_bed} ...', pmt=True)
@@ -204,7 +204,7 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
     return output
 
 
-@task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.bed', '.entropy.bed'), processes=args.cores)
+@task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.bed', '.entropy.bed'), cpus=args.cores)
 def entropy_peak(annotated_bed, entropy_bed):
     basename = right_replace(os.path.basename(annotated_bed), '.peak.clusters.normalized.compressed.annotated.bed', '')
     ip_bam, input_bam, peak_bed, _ = files[basename]
@@ -213,7 +213,7 @@ def entropy_peak(annotated_bed, entropy_bed):
     return entropy_bed
 
 
-@task(inputs=[], parent=entropy_peak, processes=args.cores,
+@task(inputs=[], parent=entropy_peak, cpus=args.cores,
       outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
                for key1, key2 in itertools.combinations(basenames, 2)])
 def run_idr(bed, out):
@@ -225,7 +225,7 @@ def run_idr(bed, out):
               pmt=True)
 
 
-@task(inputs=[], parent=run_idr, processes=args.cores,
+@task(inputs=[], parent=run_idr, cpus=args.cores,
       outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
                for key1, key2 in itertools.combinations(basenames, 2)])
 def parse_idr(out, bed):
@@ -277,7 +277,7 @@ def intersect_idr(bed, intersected_bed):
 
 
 @task(inputs=[], outputs=[os.path.join(outdir, f'{key}.idr.normalized.bed') for key in basenames],
-      parent=intersect_idr, processes=args.cores)
+      parent=intersect_idr, cpus=args.cores)
 def normalize_idr(bed, idr_normalized_bed):
     idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
     key = right_replace(os.path.basename(idr_normalized_bed), '.idr.normalized.bed', '')
@@ -314,7 +314,7 @@ def reproducible_peak(inputs, reproducible_bed):
 
 def main():
     flow = Flow('Peak', description=__doc__.strip())
-    flow.run(dry=options.dry_run, processes=options.cores)
+    flow.run(dry_run=options.dry_run, cpus=options.cores)
     if need_to_remove:
         logger.info('Cleaning up ...')
         for file in need_to_remove:
