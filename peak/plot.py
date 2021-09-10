@@ -136,7 +136,7 @@ def merge_bed(bed, out):
     tmp = right_replace(bed, '.union.bed', '.tmp.bed')
     cmder.run(f'sort -k1,1 -k2,2n {bed} > {tmp}', msg=f'Sorting {bed} ...')
     # Not output strand ?
-    cmder.run(f'bedtools merge -i {tmp} -s > {out}', msg=f'Merging peaks in {tmp} ...')
+    cmder.run(f'bedtools merge -i {tmp} -s -c 6 -o distinct > {out}', msg=f'Merging peaks in {tmp} ...')
     os.unlink(tmp)
     return out
 
@@ -151,7 +151,7 @@ def create_matrix(bed, tsv):
     bed = right_replace(tsv, '.density.matrix.tsv', '.merged.bed')
     df = pd.read_csv(bed, sep='\t', header=None, names=['chrom', 'start', 'end', 'strand'])
     dd, headers = [], ['Peak', 'Base']
-    print(names)
+
     for name in names:
         headers.extend([f'{name}:{i}' for i in list(range(-args.bases, 1)) + list(range(1, args.bases + 1))])
     for i, row in enumerate(df.itertuples()):
@@ -174,24 +174,25 @@ def create_matrix(bed, tsv):
         dd.append(densities)
     dd = pd.DataFrame(dd, columns=headers)
     dd = dd.fillna(0)
-    dd.to_csv(tsv, index=False, sep='\t', float_format='%.6f')
+    dd = dd[dd.sum(axis=1) > 0]
+    dd.to_csv(tsv, index=False, sep='\t', float_format='%.4f')
 
 
 @task(inputs=create_matrix, outputs=lambda i: i.replace('.density.matrix.tsv', '.heatmap.png'))
 def plot_peak(tsv, png):
     df = pd.read_csv(tsv, sep='\t')
-    print(df)
+    # print(df)
     df = df.drop(columns=['Peak', 'Base'])
     # df = df.drop(columns=[0, 1])
     g = sns.clustermap(df, col_cluster=False, figsize=(12, 8), cmap='Greens', cbar_pos=(0.21, 0.9, 0.78, 0.03),
                        xticklabels=False, yticklabels=False, cbar_kws={"orientation": "horizontal"})
     g.ax_row_dendrogram.set_visible(False)
-    g.ax_heatmap.set_xticks(list(range(51, 900, 101)))
+    g.ax_heatmap.set_xticks(list(range(51, len(names) * 100, 101)))
     g.ax_heatmap.set_xticklabels([name.replace('QKI_', '').replace('.merged.rmDup.r2.sorted.bam.p.sort', '')
-                                  for name in names], rotation=0)
-    g.savefig(png, dpi=1000)
+                                  for name in names], rotation=90)
+    g.savefig(png, dpi=300)
     # g.savefig(right_replace(png, '.png', '.pdf'))
-    g.savefig(right_replace(png, '.png', '.svg'))
+    # g.savefig(right_replace(png, '.png', '.svg'))
 
 
 def main():
