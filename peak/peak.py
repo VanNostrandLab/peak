@@ -84,7 +84,7 @@ def validate_paths():
     bams, files, basenames, need_to_remove, name_codes = [], {}, [], [], {}
     ids = args.ids if args.ids else [''] * len(peak_beds)
     if len(ip_bams) == len(input_bams) == len(peak_beds) == len(ids):
-        if len(ip_bams) >= 2:
+        if ip_bams:
             for i, (ip_bam, input_bam, peak_bed, name) in enumerate(zip(ip_bams, input_bams, peak_beds, ids), start=1):
                 if peak_bed.endswith('.peak.clusters.bed'):
                     link_ip_bam, link_input_bam, link_bed = ip_bam, input_bam, peak_bed
@@ -105,7 +105,7 @@ def validate_paths():
                 files[basename] = (link_ip_bam, link_input_bam, link_bed, os.path.join(outdir, f'{basename }.{suffix}'))
                 basenames.append(basename)
         else:
-            logger.error('Dataset does not have enough replicates (at least 2) to proceed.')
+            logger.error('Dataset does not have enough sample to proceed.')
             sys.exit(1)
     else:
         logger.error('Unequal number of files provided!')
@@ -292,21 +292,24 @@ def normalize_idr(bed, idr_normalized_bed):
 @task(inputs=[], outputs=os.path.join(outdir, f'{".vs.".join([key for key in basenames])}.reproducible.peaks.bed'),
       parent=normalize_idr)
 def reproducible_peak(inputs, reproducible_bed):
-    script = f'reproducible_peaks_{len(files)}.pl'
-    custom = right_replace(reproducible_bed, '.peaks.bed', '.peaks.custom.tsv')
-    idr_normalized_full_beds, entropy_full_beds, reproducible_txts = [], [], []
-    for (ip_bam, input_bam, peak_bed, _) in files.values():
-        name = right_replace(os.path.basename(peak_bed), '.peak.clusters.bed', '')
-        idr_normalized_full_beds.append(os.path.join(outdir, f'{name}.idr.normalized.tsv'))
-        suffix = 'peak.clusters.normalized.compressed.annotated.entropy.tsv'
-        entropy_full_beds.append(os.path.join(outdir, f'{name}.{suffix}'))
-        reproducible_txts.append(os.path.join(outdir, f'{name}.reproducible.peaks.tsv'))
-
-    cmd = [script] + idr_normalized_full_beds + reproducible_txts
-    cmd += [reproducible_bed, custom] + entropy_full_beds
-    cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr{".intersected.bed" if len(files) == 3 else ".out"}')]
-    cmd += [options.l2fc, options.l10p, options.idr]
-    cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
+    if len(files) == 1:
+        logger.warning('Only 1 sample was specified, identify reproducible peaks skipped!')
+    else:
+        script = f'reproducible_peaks_{len(files)}.pl'
+        custom = right_replace(reproducible_bed, '.peaks.bed', '.peaks.custom.tsv')
+        idr_normalized_full_beds, entropy_full_beds, reproducible_txts = [], [], []
+        for (ip_bam, input_bam, peak_bed, _) in files.values():
+            name = right_replace(os.path.basename(peak_bed), '.peak.clusters.bed', '')
+            idr_normalized_full_beds.append(os.path.join(outdir, f'{name}.idr.normalized.tsv'))
+            suffix = 'peak.clusters.normalized.compressed.annotated.entropy.tsv'
+            entropy_full_beds.append(os.path.join(outdir, f'{name}.{suffix}'))
+            reproducible_txts.append(os.path.join(outdir, f'{name}.reproducible.peaks.tsv'))
+    
+        cmd = [script] + idr_normalized_full_beds + reproducible_txts
+        cmd += [reproducible_bed, custom] + entropy_full_beds
+        cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr{".intersected.bed" if len(files) == 3 else ".out"}')]
+        cmd += [options.l2fc, options.l10p, options.idr]
+        cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
 
 
 def main():
