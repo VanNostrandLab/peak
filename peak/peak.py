@@ -206,6 +206,9 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
 
 @task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.bed', '.entropy.bed'), cpus=args.cores)
 def entropy_peak(annotated_bed, entropy_bed):
+    if len(files) < 2:
+        logger.warning('Calculating peak entropy skipped (# samples < 2).')
+        return
     basename = right_replace(os.path.basename(annotated_bed), '.peak.clusters.normalized.compressed.annotated.bed', '')
     ip_bam, input_bam, peak_bed, _ = files[basename]
     ip_read_count, input_read_count = get_mapped_reads(ip_bam), get_mapped_reads(input_bam)
@@ -217,37 +220,43 @@ def entropy_peak(annotated_bed, entropy_bed):
       outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
                for key1, key2 in itertools.combinations(basenames, 2)])
 def run_idr(bed, out):
-    key1, key2 = right_replace(os.path.basename(out), '.idr.out', '').split('.vs.')
-    entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
-    cmd = ['idr', '--sample', entropy_bed1, entropy_bed2, '--input-file-type', 'bed', '--rank', '5',
-           '--peak-merge-method', 'max', '--plot', '-o', out]
-    cmder.run(cmd, msg=f'Running IDR to rank peaks in {entropy_bed1} and\n{" " * 40}{entropy_bed2} ...',
-              pmt=True)
+    if len(files) >= 2:
+        key1, key2 = right_replace(os.path.basename(out), '.idr.out', '').split('.vs.')
+        entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
+        cmd = ['idr', '--sample', entropy_bed1, entropy_bed2, '--input-file-type', 'bed', '--rank', '5',
+               '--peak-merge-method', 'max', '--plot', '-o', out]
+        cmder.run(cmd, msg=f'Running IDR to rank peaks in {entropy_bed1} and\n{" " * 40}{entropy_bed2} ...',
+                  pmt=True)
+    else:
+        logger.warning('Identifying IDR peaks skipped (# samples < 2).')
 
 
 @task(inputs=[], parent=run_idr, cpus=args.cores,
       outputs=[os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
                for key1, key2 in itertools.combinations(basenames, 2)])
 def parse_idr(out, bed):
-    key1, key2 = right_replace(os.path.basename(bed), '.idr.out.bed', '').split('.vs.')
-    idr_out = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
-    idr_bed = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
-    if len(files) == 2:
-        entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
-        cmd = ['parse_idr_peaks_2.pl', idr_out,
-               right_replace(entropy_bed1, '.bed', '.tsv'), right_replace(entropy_bed2, '.bed', '.tsv'), idr_bed,
-               options.l2fc, options.l10p, options.idr]
-        cmder.run(cmd, env=env, msg=f'Parsing IDR peaks in {idr_out} ...', pmt=True)
+    if len(files) >= 2:
+        key1, key2 = right_replace(os.path.basename(bed), '.idr.out.bed', '').split('.vs.')
+        idr_out = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out')
+        idr_bed = os.path.join(outdir, f'{key1}.vs.{key2}.idr.out.bed')
+        if len(files) == 2:
+            entropy_bed1, entropy_bed2 = files[key1][3], files[key2][3]
+            cmd = ['parse_idr_peaks_2.pl', idr_out,
+                   right_replace(entropy_bed1, '.bed', '.tsv'), right_replace(entropy_bed2, '.bed', '.tsv'), idr_bed,
+                   options.l2fc, options.l10p, options.idr]
+            cmder.run(cmd, env=env, msg=f'Parsing IDR peaks in {idr_out} ...', pmt=True)
+        else:
+            idr_cutoffs = {0.001: 1000, 0.005: 955, 0.01: 830, 0.02: 705, 0.03: 632, 0.04: 580, 0.05: 540,
+                           0.06: 507, 0.07: 479, 0.08: 455, 0.09: 434,
+                           0.1: 415, 0.2: 290, 0.3: 217, 0.4: 165, 0.5: 125, 1: 0}
+            with open(idr_out) as f, open(idr_bed, 'w') as o:
+                for line in f:
+                    fields = line.strip().split('\t')
+                    chrom, start, stop, _, idr_score, strand = fields[:6]
+                    if float(idr_score) >= idr_cutoffs[options.idr]:
+                        o.write(f'{chrom}\t{start}\t{stop}\t.\t.\t{strand}\n')
     else:
-        idr_cutoffs = {0.001: 1000, 0.005: 955, 0.01: 830, 0.02: 705, 0.03: 632, 0.04: 580, 0.05: 540,
-                       0.06: 507, 0.07: 479, 0.08: 455, 0.09: 434,
-                       0.1: 415, 0.2: 290, 0.3: 217, 0.4: 165, 0.5: 125, 1: 0}
-        with open(idr_out) as f, open(idr_bed, 'w') as o:
-            for line in f:
-                fields = line.strip().split('\t')
-                chrom, start, stop, _, idr_score, strand = fields[:6]
-                if float(idr_score) >= idr_cutoffs[options.idr]:
-                    o.write(f'{chrom}\t{start}\t{stop}\t.\t.\t{strand}\n')
+        logger.warning('Parsing IDR peaks skipped (# samples < 2).')
                         
 
 @task(inputs=[], outputs=[os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')], parent=parse_idr)
@@ -274,27 +283,30 @@ def intersect_idr(bed, intersected_bed):
         cmd = ['parse_idr_peaks_3.pl', idr_intersected_bed] + entropy_beds + [f'{idr_bed}',
                                                                               options.l2fc, options.l10p, options.idr]
         cmder.run(cmd, env=env, msg=f'Parsing intersected IDR peaks in {idr_bed} ...', pmt=True)
+    else:
+        logger.warning('Intersecting IDR peaks skipped (# samples < 2).')
 
 
 @task(inputs=[], outputs=[os.path.join(outdir, f'{key}.idr.normalized.bed') for key in basenames],
       parent=intersect_idr, cpus=args.cores)
 def normalize_idr(bed, idr_normalized_bed):
-    idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
-    key = right_replace(os.path.basename(idr_normalized_bed), '.idr.normalized.bed', '')
-    ip_bam, input_bam, peak_bed, _ = files[key]
-
-    cmd = ['overlap_peak.pl', ip_bam, input_bam, idr_bed,
-           get_mapped_reads(ip_bam), get_mapped_reads(input_bam),
-           options.read_type, idr_normalized_bed, right_replace(idr_normalized_bed, '.bed', '.tsv')]
-    cmder.run(cmd, env=env, msg=f'Normalizing IDR peaks for sample {key} ...', pmt=True)
+    if len(files) >= 2:
+        idr_bed = os.path.join(outdir, f'{".vs.".join(basenames)}.idr.out.bed')
+        key = right_replace(os.path.basename(idr_normalized_bed), '.idr.normalized.bed', '')
+        ip_bam, input_bam, peak_bed, _ = files[key]
+    
+        cmd = ['overlap_peak.pl', ip_bam, input_bam, idr_bed,
+               get_mapped_reads(ip_bam), get_mapped_reads(input_bam),
+               options.read_type, idr_normalized_bed, right_replace(idr_normalized_bed, '.bed', '.tsv')]
+        cmder.run(cmd, env=env, msg=f'Normalizing IDR peaks for sample {key} ...', pmt=True)
+    else:
+        logger.warning('Normalizing IDR peaks skipped (# samples < 2).')
         
 
 @task(inputs=[], outputs=[os.path.join(outdir, f'{".vs.".join([key for key in basenames])}.reproducible.peaks.bed')],
       parent=normalize_idr)
 def reproducible_peak(inputs, reproducible_bed):
-    if len(files) == 1:
-        logger.warning('Only 1 sample was specified, identify reproducible peaks skipped!')
-    else:
+    if len(files) >= 2:
         script = f'reproducible_peaks_{len(files)}.pl'
         custom = right_replace(reproducible_bed, '.peaks.bed', '.peaks.custom.tsv')
         idr_normalized_full_beds, entropy_full_beds, reproducible_txts = [], [], []
@@ -310,6 +322,8 @@ def reproducible_peak(inputs, reproducible_bed):
         cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr{".intersected.bed" if len(files) == 3 else ".out"}')]
         cmd += [options.l2fc, options.l10p, options.idr]
         cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
+    else:
+        logger.warning('Identifying reproducible peaks skipped (# samples < 2).')
 
 
 def main():
