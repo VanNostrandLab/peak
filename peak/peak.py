@@ -89,7 +89,7 @@ def validate_paths():
                 if peak_bed.endswith('.peak.clusters.bed'):
                     link_ip_bam, link_input_bam, link_bed = ip_bam, input_bam, peak_bed
                     bams.extend([ip_bam, input_bam])
-                    basename = right_replace(os.path.basename(ip_bam), '.bam', '')
+                    basename = name or right_replace(os.path.basename(ip_bam), '.bam', '')
                 else:
                     basename = name if name else f'S{i}'
                     link_ip_bam = link_file(ip_bam, os.path.join(outdir, f'{basename}.IP.bam'))
