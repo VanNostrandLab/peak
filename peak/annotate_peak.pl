@@ -178,6 +178,7 @@ sub read_peak_fi {
     open(PEAK,$peakfi) || die "no peakfi $peakfi\n";
     for my $line (<PEAK>) {
 	chomp($line);
+	next if ($line =~ /^\#/);
 	my @tmp = split(/\t/,$line);
 	my $chr = $tmp[0];
 	my $str = $tmp[5];

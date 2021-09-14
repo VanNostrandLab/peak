@@ -45,7 +45,7 @@ my %peak_read_counts;
 
 open(OUT,">$output");
 open(OUTFULL,">$output_full");
-print OUTFULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print OUTFULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 
 for my $peak (keys %peak_read_counts) {
     unless (exists $peak_read_counts{$peak}{"ip"}) {

@@ -31,17 +31,17 @@ my $rep1_full_out = $ARGV[3];
 my $rep2_full_out = $ARGV[4];
 my $rep3_full_out = $ARGV[5];
 open(REP1FULL,">$rep1_full_out") || die "Cannot open $rep1_full_out for writing!\n";
-print REP1FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print REP1FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 open(REP2FULL,">$rep2_full_out") || die "Cannot open $rep2_full_out for writing!\n";
-print REP2FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print REP2FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 open(REP3FULL,">$rep3_full_out") || die "Cannot open $rep3_full_out for writing!\n";
-print REP3FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print REP3FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 
 my $bed_output = $ARGV[6];
 my $custom_bed_output = $ARGV[7];
 open(BEDOUT,">$bed_output") || die "Cannot open $bed_output for writing!\n";
 open(CUSTOMOUT,">$custom_bed_output") || die "Cannot open $custom_bed_output for writing!\n";
-print CUSTOMOUT "idr_region\tpeak\tgeo_mean\tl2fc_1\tl2fc_2\tl2fc_3\tl10p_1\tl10p_2\tl10p_3\n";
+print CUSTOMOUT "# idr_region\tpeak\tgeo_mean\tl2fc_1\tl2fc_2\tl2fc_3\tl10p_1\tl10p_2\tl10p_3\n";
 
 my $file1 = $ARGV[8];
 my $file2 = $ARGV[9];
@@ -272,6 +272,7 @@ sub parse_input_norm_full_file {
     open(INF,$input_norm_file) || die "Cannot open $input_norm_file for reading!\n";
     for my $line (<INF>) {
         chomp($line);
+        next if ($line =~ /^\#/);
         my @tmp = split(/\t/,$line);
         my $chr = $tmp[0];
         my $start = $tmp[1];
@@ -299,7 +300,7 @@ sub parse_file {
     open(F,$file) || die "Cannot open $file for reading!\n";
     for my $line (<F>) {
         chomp($line);
-
+        next if ($line =~ /^\#/);
         my @tmp = split(/\t/,$line);
         my $chr = $tmp[0];
         my $start = $tmp[1];
@@ -354,8 +355,8 @@ sub parse_idr_file {
     open(ID,$idr_file) || die "Cannot open $idr_file for reading!\n";
     for my $line (<ID>) {
         chomp($line);
+        next if ($line =~ /^\#/);
         my @tmp = split(/\t/,$line);
-
         my $chr = $tmp[0];
         my $start = $tmp[1];
         my $stop = $tmp[2];

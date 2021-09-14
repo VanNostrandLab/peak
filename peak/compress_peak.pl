@@ -15,7 +15,7 @@ my $compressed_full_bed = $ARGV[2];
 
 open(O, ">$compressed_bed") || die "Cannot open $compressed_bed for writing!";
 open(FULL, ">$compressed_full_bed") || die "Cannot open $compressed_full_bed for writing!";
-print FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 
 my %peaks2size;
 my %peaks2l2fc;
@@ -81,6 +81,7 @@ sub read {
     open(F, $file) || die "Cannot open $file\n";
     for my $line (<F>) {
 		chomp($line);
+		next if ($line =~ /^\#/);
 		my @fields = split(/\t/, $line);
 		my ($chrom, $position, $strand, $p) = split(/\:/, $fields[3]);
 		my $start = $fields[1];

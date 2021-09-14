@@ -32,15 +32,15 @@ my $rep2_idr_merged_full_bed = $ARGV[1];
 my $rep1_full_out = $ARGV[2];
 my $rep2_full_out = $ARGV[3];
 open(REP1FULL,">$rep1_full_out") || die "Cannot open $rep1_full_out for writing!\n";
-print REP1FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print REP1FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 open(REP2FULL,">$rep2_full_out") || die "Cannot open $rep2_full_out for writing!\n";
-print REP2FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
+print REP2FULL "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 
 my $bed_output = $ARGV[4];
 my $custom_bed_output = $ARGV[5];
 open(BEDOUT,">$bed_output") || die "Cannot open $bed_output for writing!\n";
 open(CUSTOMOUT,">$custom_bed_output") || die "Cannot open $custom_bed_output for writing!\n";
-print CUSTOMOUT "idr_region\tpeak\tgeo_mean\tl2fc_1\tl2fc_2\tl10p_1\tl10p_2\n";
+print CUSTOMOUT "# idr_region\tpeak\tgeo_mean\tl2fc_1\tl2fc_2\tl10p_1\tl10p_2\n";
 
 my $idr_file = $ARGV[8];
 my %idr_output;
@@ -181,6 +181,7 @@ sub parse_input_norm_full_file {
     open(INF,$input_norm_file) || die "Cannot open $input_norm_file for reading!\n";
     for my $line (<INF>) {
 	chomp($line);
+	next if ($line =~ /^\#/);
 	my @tmp = split(/\t/,$line);
 	my $chr = $tmp[0];
 	my $start = $tmp[1];
@@ -204,7 +205,7 @@ sub parse_file {
     open(F,$file) || die "Cannot open $file for reading!\n";
     for my $line (<F>) {
         chomp($line);
-
+        next if ($line =~ /^\#/);
         my @tmp = split(/\t/,$line);
         my $chr = $tmp[0];
         my $start = $tmp[1];
@@ -257,6 +258,7 @@ sub parse_idr_file {
     open(ID,$idr_file) || die "Cannot open $idr_file for reading!\n";
     for my $line (<ID>) {
 	chomp($line);
+	next if ($line =~ /^\#/);
 	my @tmp = split(/\t/,$line);
 	
 	my $chr = $tmp[0];
