@@ -15,6 +15,7 @@ my $compressed_full_bed = $ARGV[2];
 
 open(O, ">$compressed_bed") || die "Cannot open $compressed_bed for writing!";
 open(FULL, ">$compressed_full_bed") || die "Cannot open $compressed_full_bed for writing!";
+print FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
 
 my %peaks2size;
 my %peaks2l2fc;

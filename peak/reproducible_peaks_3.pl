@@ -31,13 +31,17 @@ my $rep1_full_out = $ARGV[3];
 my $rep2_full_out = $ARGV[4];
 my $rep3_full_out = $ARGV[5];
 open(REP1FULL,">$rep1_full_out") || die "Cannot open $rep1_full_out for writing!\n";
+print REP1FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
 open(REP2FULL,">$rep2_full_out") || die "Cannot open $rep2_full_out for writing!\n";
+print REP2FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
 open(REP3FULL,">$rep3_full_out") || die "Cannot open $rep3_full_out for writing!\n";
+print REP3FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
 
 my $bed_output = $ARGV[6];
 my $custom_bed_output = $ARGV[7];
 open(BEDOUT,">$bed_output") || die "Cannot open $bed_output for writing!\n";
 open(CUSTOMOUT,">$custom_bed_output") || die "Cannot open $custom_bed_output for writing!\n";
+print CUSTOMOUT "idr_region\tpeak\tgeo_mean\tl2fc_1\tl2fc_2\tl2fc_3\tl10p_1\tl10p_2\tl10p_3\n";
 
 my $file1 = $ARGV[8];
 my $file2 = $ARGV[9];

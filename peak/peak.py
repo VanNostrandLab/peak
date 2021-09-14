@@ -188,7 +188,7 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
     df['entropy'] = df.apply(lambda row: 0 if row.pi <= row.qi else row.pi * math.log2(row.pi / row.qi), axis=1)
     df['excess_reads'] = df['pi'] - df['qi']
     entropy = output.replace('.entropy.bed', '.entropy.tsv')
-    df.to_csv(entropy, index=False, columns=columns + ['entropy'], sep='\t', header=False)
+    df.to_csv(entropy, index=False, columns=columns + ['entropy'], sep='\t')
 
     excess_read = output.replace('.bed', '.excess.reads.tsv')
     df.to_csv(excess_read, index=False, columns=columns + ['excess_reads'], sep='\t')
