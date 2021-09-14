@@ -32,9 +32,9 @@ my $rep2_idr_merged_full_bed = $ARGV[1];
 my $rep1_full_out = $ARGV[2];
 my $rep2_full_out = $ARGV[3];
 open(REP1FULL,">$rep1_full_out") || die "Cannot open $rep1_full_out for writing!\n";
-print REP1FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
+print REP1FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 open(REP2FULL,">$rep2_full_out") || die "Cannot open $rep2_full_out for writing!\n";
-print REP2FULL "$chrom\t$start\t$stop\t$peak\tip_reads\tinput_reads\tp\tstatistic\t$method\t$status\t$l10p\t$l2fc\n";
+print REP2FULL "chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\n";
 
 my $bed_output = $ARGV[4];
 my $custom_bed_output = $ARGV[5];
