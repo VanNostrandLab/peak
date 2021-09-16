@@ -173,7 +173,7 @@ def annotate_peak(compressed_bed, annotated_tsv):
 
 
 def calculate_entropy(tsv, output, ip_read_count, input_read_count):
-    logger.info(f'Calculating entropy for {bed} ...')
+    logger.info(f'Calculating entropy for {tsv} ...')
     columns = ['chrom', 'start', 'end', 'peak', 'ip_read_number', 'input_read_number',
                'p', 'v', 'method', 'status', 'l10p', 'l2fc',
                'ensg_overlap', 'feature_type', 'feature_ensg', 'gene', 'region']
@@ -191,10 +191,10 @@ def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     entropy = output.replace('.entropy.bed', '.entropy.tsv')
     dd = df.copy()
     dd = dd.rename(columns={'chrom': '# chrom'})
-    dd.to_csv(entropy, index=False, columns=columns + ['entropy'], sep='\t')
+    dd.to_csv(entropy, index=False, columns=['# chrom'] + columns[1:] + ['entropy'], sep='\t')
 
     excess_read = output.replace('.bed', '.excess.reads.tsv')
-    df.to_csv(excess_read, index=False, columns=columns + ['excess_reads'], sep='\t')
+    dd.to_csv(excess_read, index=False, columns=['# chrom'] + columns[1:] + ['excess_reads'], sep='\t')
 
     df['strand'] = df.peak.str.split(':', expand=True)[2]
     df['l2fc'] = df['l2fc'].map('{:.15f}'.format)
@@ -203,11 +203,11 @@ def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     # For IDR 2.0.3, columns 'excess_reads', 'pi', and 'qi' need to be retained for .entropy.bed
     columns = ['chrom', 'start', 'end', 'l2fc', 'entropy', 'strand', 'excess_reads', 'pi', 'qi']
     df.to_csv(output, index=False, columns=columns, sep='\t', header=False)
-    logger.info(f'Calculating entropy for {bed} complete.')
+    logger.info(f'Calculating entropy for {tsv} complete.')
     return output
 
 
-@task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.bed', '.entropy.bed'), cpus=args.cores)
+@task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.tsv', '.entropy.bed'), cpus=args.cores)
 def entropy_peak(annotated_tsv, entropy_bed):
     if len(files) < 2:
         logger.warning('Calculating peak entropy skipped (# samples < 2).')
