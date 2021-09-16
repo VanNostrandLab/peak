@@ -164,19 +164,20 @@ def compress_peak(normalized_bed, compressed_bed):
     return compressed_bed
 
 
-@task(inputs=compress_peak, outputs=lambda i: right_replace(i, '.bed', '.annotated.bed'), cpus=args.cores)
-def annotate_peak(compressed_bed, annotated_bed):
-    cmd = ['annotate_peak.pl', right_replace(compressed_bed, '.bed', '.tsv'), annotated_bed, options.species, 'full']
+@task(inputs=compress_peak, outputs=lambda i: right_replace(i, '.bed', '.annotated.tsv'), cpus=args.cores)
+def annotate_peak(compressed_bed, annotated_tsv):
+    cmd = ['annotate_peak.pl', right_replace(compressed_bed, '.bed', '.tsv'),
+           annotated_tsv, right_replace(annotated_tsv, '.tsv', '.bed'), options.species]
     cmder.run(cmd, env=env, msg=f'Annotating peaks in {compressed_bed} ...', pmt=True)
     return annotated_bed
 
 
-def calculate_entropy(bed, output, ip_read_count, input_read_count):
+def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     logger.info(f'Calculating entropy for {bed} ...')
     columns = ['chrom', 'start', 'end', 'peak', 'ip_read_number', 'input_read_number',
                'p', 'v', 'method', 'status', 'l10p', 'l2fc',
                'ensg_overlap', 'feature_type', 'feature_ensg', 'gene', 'region']
-    df = pd.read_csv(bed, sep='\t', header=None, names=columns)
+    df = pd.read_csv(tsv, sep='\t', header=None, names=columns, skiprows=[0])
     df = df[df.l2fc >= 0]
     # df = df[(df.l2fc >= options.l2fc) & (df.l10p >= options.l10p)]
     if df.empty:
@@ -188,7 +189,9 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
     df['entropy'] = df.apply(lambda row: 0 if row.pi <= row.qi else row.pi * math.log2(row.pi / row.qi), axis=1)
     df['excess_reads'] = df['pi'] - df['qi']
     entropy = output.replace('.entropy.bed', '.entropy.tsv')
-    df.to_csv(entropy, index=False, columns=columns + ['entropy'], sep='\t')
+    dd = df.copy()
+    dd = dd.rename(columns={'chrom': '# chrom'})
+    dd.to_csv(entropy, index=False, columns=columns + ['entropy'], sep='\t')
 
     excess_read = output.replace('.bed', '.excess.reads.tsv')
     df.to_csv(excess_read, index=False, columns=columns + ['excess_reads'], sep='\t')
@@ -205,14 +208,14 @@ def calculate_entropy(bed, output, ip_read_count, input_read_count):
 
 
 @task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.bed', '.entropy.bed'), cpus=args.cores)
-def entropy_peak(annotated_bed, entropy_bed):
+def entropy_peak(annotated_tsv, entropy_bed):
     if len(files) < 2:
         logger.warning('Calculating peak entropy skipped (# samples < 2).')
         return
-    basename = right_replace(os.path.basename(annotated_bed), '.peak.clusters.normalized.compressed.annotated.bed', '')
+    basename = right_replace(os.path.basename(annotated_tsv), '.peak.clusters.normalized.compressed.annotated.tsv', '')
     ip_bam, input_bam, peak_bed, _ = files[basename]
     ip_read_count, input_read_count = get_mapped_reads(ip_bam), get_mapped_reads(input_bam)
-    calculate_entropy(annotated_bed, entropy_bed, ip_read_count, input_read_count)
+    calculate_entropy(annotated_tsv, entropy_bed, ip_read_count, input_read_count)
     return entropy_bed
 
 

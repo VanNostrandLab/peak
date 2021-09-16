@@ -3,26 +3,34 @@
 use warnings;
 use strict;
 
+# Usage:
+#     annotate_peak.pl compressed_peak_tsv output_tsv output_bed species
+
 my $peak_fi = $ARGV[0];
 my $output = $peak_fi.".annotated_proxdist_miRlncRNA";
 if (exists $ARGV[1]) {
     $output = $ARGV[1];
 }
 
-my $species = "hg19";
+my $output_bed = $peak_fi.".annotated_proxdist_miRlncRNA.bed";
 if (exists $ARGV[2]) {
-    $species = $ARGV[2];
+    $output_bed = $ARGV[2];
 }
 
-my $file_format = "bed";
+my $species = "hg19";
 if (exists $ARGV[3]) {
-    $file_format = $ARGV[3];
+    $species = $ARGV[3];
 }
 
-if ($file_format eq "bed" || $file_format eq "full") { } else {
-    print STDERR "Fatal error - file format needs to be either 'bed' or 'full'\n";
-    exit;
-}
+#my $file_format = "bed";
+#if (exists $ARGV[4]) {
+#    $file_format = $ARGV[4];
+#}
+#
+#if ($file_format eq "bed" || $file_format eq "full") { } else {
+#    print STDERR "Fatal error - file format needs to be either 'bed' or 'full'\n";
+#    exit;
+#}
 
 my $verbose_flag = 0;
 my $hashing_value = 100000;
@@ -87,8 +95,11 @@ if ($species eq "hg19") {
 
 
 open(OUT,">$output");
+print OUT "# chrom\tstart\tstop\tpeak\tip_reads\tinput_reads\tp\tstatistic\tmethod\tstatus\tl10p\tl2fc\tensg_overlap\tfeature_type\tfeature_ensg\tgene\tregion\n";
+open(OUT_BED,">$output_bed");
 &read_peak_fi($peak_fi);
 close(OUT);
+close(OUT_BED);
 
 sub parse_trna_list {
     my $trna_fi = shift;
@@ -124,7 +135,7 @@ sub read_mirbase {
     open(MIR,$mirbase_fi);
     for my $line (<MIR>) {
         chomp($line);
-	$line =~ s/\r//g;
+	    $line =~ s/\r//g;
         next if ($line =~ /^\#/);
         my @tmp = split(/\t/,$line);
         if ($tmp[2] eq "miRNA_primary_transcript") {
@@ -143,7 +154,6 @@ sub read_mirbase {
                 my $feature = $id."|miRNA|".$start."-".$stop;
                 $enst2ensg{$id} = $id;
                 $ensg2name{$id}{$gname} = 1;
-#		print STDERR "feature $feature $chr $gname $str\n" if ($gname =~ /mir-21$/);
                 for my $j ($x..$y) {
                     push @{$all_features{$chr}{$str}{$j}},$feature;
                 }
@@ -181,14 +191,23 @@ sub read_peak_fi {
 	next if ($line =~ /^\#/);
 	my @tmp = split(/\t/,$line);
 	my $chr = $tmp[0];
-	my $str = $tmp[5];
 	my $start = $tmp[1];
 	my $stop = $tmp[2];
 
-	if ($file_format eq "full") {
-	    my ($origchr,$origpos,$tmpstr,$orig_pval) = split(/\:/,$tmp[3]);
-	    $str = $tmpstr;
-	}
+    my ($origchr,$origpos,$str,$orig_pval) = split(/\:/,$tmp[3]);
+    my $l10p = $tmp[10];
+    my $l2fc = $tmp[11];
+
+#	if ($file_format eq "full") {
+#	    my ($origchr,$origpos,$tmpstr,$orig_pval) = split(/\:/,$tmp[3]);
+#	    $str = $tmpstr;
+#	    my $l10p = $tmp[10];
+#        my $l2fc = $tmp[11];
+#	} else {
+#	    $str = $tmp[6];
+#        my $l10p = $tmp[3];
+#        my $l2fc = $tmp[4];
+#	}
 
 	my $debug_flag = 0;
 #	$debug_flag = 1 if ($start == 149420331);
@@ -333,6 +352,7 @@ sub read_peak_fi {
         }
 
 	print OUT "$line\t$all_ensg_overlap\t$final_feature_type\t$final_feature_ensg\t".join("|",keys %final_genenames)."\t".join("||",@toprint2)."\n";
+	print OUT_BED "$chr\t$start\t$stop\t$l10p\t$l2fc\t$str\t$all_ensg_overlap\t$final_feature_type\t$final_feature_ensg\t".join("|",keys %final_genenames)."\t".join("||",@toprint2)."\n";
 
     }
     close(PEAK);
