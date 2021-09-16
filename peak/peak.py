@@ -169,7 +169,7 @@ def annotate_peak(compressed_bed, annotated_tsv):
     cmd = ['annotate_peak.pl', right_replace(compressed_bed, '.bed', '.tsv'),
            annotated_tsv, right_replace(annotated_tsv, '.tsv', '.bed'), options.species]
     cmder.run(cmd, env=env, msg=f'Annotating peaks in {compressed_bed} ...', pmt=True)
-    return annotated_bed
+    return annotated_tsv
 
 
 def calculate_entropy(tsv, output, ip_read_count, input_read_count):
