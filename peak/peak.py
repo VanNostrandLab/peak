@@ -174,7 +174,7 @@ def annotate_peak(compressed_bed, annotated_tsv):
 
 def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     logger.info(f'Calculating entropy for {tsv} ...')
-    columns = ['chrom', 'start', 'end', 'peak', 'ip_read_number', 'input_read_number',
+    columns = ['chrom', 'start', 'end', 'peak', 'ip_reads', 'input_reads',
                'p', 'v', 'method', 'status', 'l10p', 'l2fc',
                'ensg_overlap', 'feature_type', 'feature_ensg', 'gene', 'region']
     df = pd.read_csv(tsv, sep='\t', header=None, names=columns, skiprows=[0])
@@ -183,8 +183,8 @@ def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     if df.empty:
         logger.error(f'No valid peaks found in {bed} (l2fc > 0 failed).')
         sys.exit(1)
-    df['pi'] = df['ip_read_number'] / ip_read_count
-    df['qi'] = df['input_read_number'] / input_read_count
+    df['pi'] = df['ip_reads'] / ip_read_count
+    df['qi'] = df['input_reads'] / input_read_count
 
     df['entropy'] = df.apply(lambda row: 0 if row.pi <= row.qi else row.pi * math.log2(row.pi / row.qi), axis=1)
     df['excess_reads'] = df['pi'] - df['qi']
@@ -194,7 +194,7 @@ def calculate_entropy(tsv, output, ip_read_count, input_read_count):
     dd.to_csv(entropy, index=False, columns=['# chrom'] + columns[1:] + ['entropy'], sep='\t')
 
     excess_read = output.replace('.bed', '.excess.reads.tsv')
-    dd.to_csv(excess_read, index=False, columns=['# chrom'] + columns[1:] + ['excess_reads'], sep='\t')
+    dd.to_csv(excess_read, index=False, columns=['# chrom'] + columns[1:] + [ 'entropy', 'excess_reads'], sep='\t')
 
     df['strand'] = df.peak.str.split(':', expand=True)[2]
     df['l2fc'] = df['l2fc'].map('{:.15f}'.format)
@@ -210,8 +210,9 @@ def calculate_entropy(tsv, output, ip_read_count, input_read_count):
 @task(inputs=annotate_peak, outputs=lambda i: right_replace(i, '.tsv', '.entropy.bed'), cpus=args.cores)
 def entropy_peak(annotated_tsv, entropy_bed):
     if len(files) < 2:
-        logger.warning('Calculating peak entropy skipped (# samples < 2).')
-        return
+        logger.warning('Calculating peak entropy skipped (# samples < 2), pipeline ends here.')
+        cleanup()
+        sys.exit(0)
     basename = right_replace(os.path.basename(annotated_tsv), '.peak.clusters.normalized.compressed.annotated.tsv', '')
     ip_bam, input_bam, peak_bed, _ = files[basename]
     ip_read_count, input_read_count = get_mapped_reads(ip_bam), get_mapped_reads(input_bam)
@@ -329,14 +330,18 @@ def reproducible_peak(inputs, reproducible_bed):
         logger.warning('Identifying reproducible peaks skipped (# samples < 2).')
 
 
-def main():
-    flow = Flow('Peak', description=__doc__.strip())
-    flow.run(dry_run=options.dry_run, cpus=options.cores)
+def cleanup():
     if need_to_remove:
         logger.info('Cleaning up ...')
         for file in need_to_remove:
             cmder.run(f'rm {file}')
         logger.info('Cleaning up complete.')
+
+
+def main():
+    flow = Flow('Peak', description=__doc__.strip())
+    flow.run(dry_run=options.dry_run, cpus=options.cores)
+    cleanup()
 
 
 if __name__ == '__main__':
