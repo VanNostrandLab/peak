@@ -328,6 +328,15 @@ def reproducible_peak(inputs, reproducible_bed):
         cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
     else:
         logger.warning('Identifying reproducible peaks skipped (# samples < 2).')
+        
+        
+@task(inputs=reproducible_peak,
+      outputs=lambda i: i.replace('.reproducible.peaks.bed', '.annotated.reproducible.peaks.bed'))
+def annotate_reproducible_peak(bed, out):
+    cmd = ['annotate_peak.pl', bed,
+           out, right_replace(out, '.bed', '.tsv'), options.species]
+    cmder.run(cmd, env=env, msg=f'Annotating peaks in {bed} ...', pmt=True)
+    os.unlink(right_replace(out, '.bed', '.tsv'))
 
 
 def cleanup():
