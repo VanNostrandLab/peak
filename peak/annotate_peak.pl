@@ -84,6 +84,7 @@ if ($species eq "hg19") {
 } else {
     die "Error, species $species not implemented\n";
 }
+
 &read_lncrna_parsed($lncrna_fullfi) if ($lncrna_fullfi);
 &read_mirbase($mirbase_fi) if ($mirbase_fi);
 
@@ -187,16 +188,26 @@ sub read_peak_fi {
     print STDERR "reading $peakfi\n";
     open(PEAK,$peakfi) || die "no peakfi $peakfi\n";
     for my $line (<PEAK>) {
-	chomp($line);
-	next if ($line =~ /^\#/);
-	my @tmp = split(/\t/,$line);
-	my $chr = $tmp[0];
-	my $start = $tmp[1];
-	my $stop = $tmp[2];
+        chomp($line);
+        next if ($line =~ /^\#/);
+        my @tmp = split(/\t/,$line);
+        my $chr = $tmp[0];
+        my $start = $tmp[1];
+        my $stop = $tmp[2];
 
-    my ($origchr,$origpos,$str,$orig_pval) = split(/\:/,$tmp[3]);
-    my $l10p = $tmp[10];
-    my $l2fc = $tmp[11];
+        my $l10p = $tmp[3];
+        my $l2fc = $tmp[4];
+        my $str = $tmp[5];
+        print STDERR "before: $str $l10p $l2fc\n";
+        if (scalar(@tmp) > 6 ) {
+            # my ($origchr,$origpos,$tmpstr,$orig_pval) = split(/\:/,$tmp[3]);
+            my @tmp_split = split(/\:/,$tmp[3]);
+            $str = $tmp_split[2];
+            $l10p = $tmp[10];
+            $l2fc = $tmp[11];
+        }
+
+        print STDERR "after: $str $l10p $l2fc\n";
 
 #	if ($file_format eq "full") {
 #	    my ($origchr,$origpos,$tmpstr,$orig_pval) = split(/\:/,$tmp[3]);
