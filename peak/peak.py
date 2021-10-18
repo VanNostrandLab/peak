@@ -326,20 +326,25 @@ def reproducible_peak(inputs, reproducible_bed):
         cmd += [os.path.join(outdir, f'{".vs.".join(basenames)}.idr{".intersected.bed" if len(files) == 3 else ".out"}')]
         cmd += [options.l2fc, options.l10p, options.idr]
         cmder.run(cmd, env=env, msg='Identifying reproducible peaks ...', pmt=True)
+        return reproducible_bed
     else:
         logger.warning('Identifying reproducible peaks skipped (# samples < 2).')
+        return ''
         
         
 @task(inputs=reproducible_peak,
       outputs=lambda i: i.replace('.reproducible.peaks.bed', '.annotated.reproducible.peaks.bed'))
 def annotate_reproducible_peak(bed, out):
-    cmd = ['annotate_peak.pl', bed,
-           out, right_replace(out, '.bed', '.tsv'), options.species]
-    cmder.run(cmd, env=env, msg=f'Annotating peaks in {bed} ...', pmt=True)
-    os.unlink(right_replace(out, '.bed', '.tsv'))
+    if bed:
+        cmd = ['annotate_peak.pl', bed, out, right_replace(out, '.bed', '.tsv'), options.species]
+        cmder.run(cmd, env=env, msg=f'Annotating peaks in {bed} ...', pmt=True)
+        os.unlink(right_replace(out, '.bed', '.tsv'))
+    else:
+        logger.warning('No reproducible peak bed file, annotation skipped!')
 
 
 def cleanup():
+    # TODO: need to handle this better, see the way for cleaning up in seCLIP
     if need_to_remove:
         logger.info('Cleaning up ...')
         for file in need_to_remove:
